@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment / secrets
+.env
+*.env
+
+# FAISS index (large binary, regenerated via ingest.py)
+rag/faiss_index/
+
+# Workout data (user-specific)
+data/
+
+# SQLite session memory
+*.db
+*.sqlite3
+
+# PDF exports
+*.pdf
+
+# Markdown docs that aren't part of the codebase
+BUILD_STORY.md
+
+# PDF generator scripts
+generate_pdf.py
+generate_interview_pdf.py
+
+# macOS
+.DS_Store
+
+# pytest
+.pytest_cache/
+.coverage
+
+# IDE
+.vscode/
+.idea/
