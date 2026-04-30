@@ -1,57 +1,88 @@
 # AdaptiveCoach — Multi-Agent Fitness Intelligence System
 
-AdaptiveCoach is a LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan with full Langfuse observability.
+> A LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan — with full Langfuse observability.
+
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
+![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat&logo=openai&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat&logo=streamlit&logoColor=white)
+![Langfuse](https://img.shields.io/badge/Langfuse-Observability-000000?style=flat)
 
 ---
 
 ## Architecture
 
 ```
-                        ┌─────────────────────────────────────────────────────┐
-                        │                  AdaptiveCoach Pipeline              │
-                        └─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                       AdaptiveCoach Pipeline                        │
+└─────────────────────────────────────────────────────────────────────┘
 
-  [User History]                                                   [FAISS Index]
-  [Session Memory]                                                 [sports_science.md]
-       │                                                                  │
-       ▼                                                                  │
-┌─────────────┐    ┌──────────────────┐    ┌──────────────────────┐      │
-│             │    │                  │    │                        │◄─────┘
-│  context_   │───►│  fatigue_analyst │───►│  progression_planner  │
-│  loader     │    │                  │    │   (RAG retrieval here) │
-│             │    │  ACWR + RPE      │    │                        │
-└─────────────┘    │  trend analysis  │    └──────────┬─────────────┘
-                   └──────────────────┘               │
-                                                       ▼
-                                          ┌──────────────────────┐
-                                          │   nutrition_advisor   │
-                                          │   TDEE + macros       │
-                                          └──────────┬───────────┘
-                                                     │
-                                                     ▼
-                                          ┌──────────────────────┐
-                         ┌───────────────►│     plan_writer       │
-                         │               │   7-day structured     │
-                         │               │   plan generation      │
-                         │               └──────────┬─────────────┘
-                         │                          │
-                         │  critic_feedback         ▼
-                         │  (if score < 0.75) ┌──────────────────────┐
-                         └────────────────────│       critic          │
-                              loop_count < 3  │   Safety · Coherence  │
-                                              │   Groundedness · Goals│
-                                              └──────────┬─────────────┘
-                                                         │
-                                                    score ≥ 0.75
-                                                  OR loop_count = 3
-                                                         │
-                                                         ▼
-                                                   [Final Plan]
+ [User History]        [Session Memory]        [FAISS Index]
+      │                      │                      │
+      └──────────┬───────────┘                      │
+                 ▼                                  │
+        ┌────────────────┐                          │
+        │ context_loader │                          │
+        └───────┬────────┘                          │
+                │                                   │
+                ▼                                   │
+        ┌────────────────┐                          │
+        │fatigue_analyst │                          │
+        │  ACWR · RPE    │                          │
+        └───────┬────────┘                          │
+                │                                   │
+                ▼                                   │
+        ┌───────────────────┐                       │
+        │progression_planner│◄──────────────────────┘
+        │  RAG retrieval    │   MMR search (k=4)
+        └───────┬───────────┘
+                │
+                ▼
+        ┌────────────────┐
+        │nutrition_advisor│
+        │ TDEE · macros  │
+        │ carb periodise │
+        └───────┬────────┘
+                │
+       ┌────────▼────────┐
+       │                 │◄─────────────────────────┐
+       │   plan_writer   │                          │ critic_feedback
+       │  7-day plan     │                          │ (score < 0.75
+       │  generation     │                          │  loop_count < 3)
+       └────────┬────────┘                          │
+                │                                   │
+                ▼                                   │
+        ┌───────────────┐                           │
+        │    critic     │───────────────────────────┘
+        │ Safety        │
+        │ Coherence     │
+        │ Groundedness  │──── score ≥ 0.75 ──► [Final Plan]
+        │ Goal Alignment│     OR loop = 3
+        └───────────────┘
 
-  Every node ──► Langfuse (named spans + LangchainCallbackHandler)
-  Every LLM call ──► ChatPromptTemplate chain (no bare f-strings)
-  Structured outputs ──► PydanticOutputParser / JsonOutputParser
+  Every node  ──►  Langfuse (named spans + LangchainCallbackHandler)
+  Every call  ──►  ChatPromptTemplate chain (no bare f-strings)
+  All outputs ──►  Pydantic v2 / JsonOutputParser
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Orchestration | LangGraph `StateGraph` with typed `AgentState` |
+| LLM | OpenAI GPT-4o (temperature tuned per node) |
+| Embeddings | `text-embedding-3-small` → FAISS |
+| RAG | `RecursiveCharacterTextSplitter` → MMR retrieval |
+| Prompts | `ChatPromptTemplate` per node (no f-strings) |
+| Memory | `SQLChatMessageHistory` (SQLite) |
+| Workout Storage | JSON flat-file keyed by `user_id` |
+| Observability | Langfuse (spans, token counts, latency) |
+| Schemas | Pydantic v2 |
+| UI | Streamlit (4 tabs, Hevy-style per-set logging) |
+| Tests | pytest |
 
 ---
 
@@ -60,47 +91,48 @@ AdaptiveCoach is a LangGraph-orchestrated multi-agent system that analyses your 
 ### 1. Clone and install
 
 ```bash
-git clone <repo-url>
-cd adaptive_coach
+git clone https://github.com/Ameya-J16/adaptive-coach.git
+cd adaptive-coach
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-# or: uv pip install -r requirements.txt
 ```
 
-### 2. Set environment variables
+### 2. Configure environment variables
 
 ```bash
 cp .env.example .env
-# Edit .env and add your keys:
-# OPENAI_API_KEY=sk-...
-# LANGFUSE_PUBLIC_KEY=pk-lf-...
-# LANGFUSE_SECRET_KEY=sk-lf-...
-# LANGFUSE_HOST=https://cloud.langfuse.com
 ```
+
+Edit `.env` and add your keys:
+
+```env
+OPENAI_API_KEY=sk-...
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+```
+
+> Langfuse is optional — the system degrades gracefully if keys are absent.
 
 ### 3. Build the RAG index
 
 ```bash
 python -m rag.ingest
-# Creates rag/faiss_index/ with the embedded sports science knowledge base
+# Chunks sports_science.md → embeds → saves to rag/faiss_index/
 ```
 
-### 4. Run the CLI
-
-```bash
-# Generate an adaptive plan
-python main.py --user-id ameya --action plan
-
-# Log a workout
-python main.py --user-id ameya --action log
-
-# View history
-python main.py --user-id ameya --action history
-```
-
-### 5. Run the Streamlit app
+### 4. Run the Streamlit app
 
 ```bash
 streamlit run app.py
+```
+
+### 5. CLI usage
+
+```bash
+python main.py --user-id ameya --action plan     # generate weekly plan
+python main.py --user-id ameya --action log      # log a workout
+python main.py --user-id ameya --action history  # view history
 ```
 
 ### 6. Run tests
@@ -115,52 +147,51 @@ pytest tests/ -v
 
 ### Why LangGraph?
 
-Standard LangChain chains are DAGs — they run once and return. AdaptiveCoach requires a **stateful, looping pipeline** where the Critic node can evaluate the plan quality and route execution back to the PlanWriter for revision. LangGraph's `StateGraph` with typed state (`AgentState`) and conditional edges makes this agentic loop explicit, inspectable, and debuggable.
+Standard LangChain chains are DAGs — they run once and return. AdaptiveCoach requires a **stateful, looping pipeline** where the Critic node can evaluate plan quality and route execution back to the PlanWriter for revision.
 
-Specifically:
-- **Typed state** (`AgentState` TypedDict) ensures every node knows exactly what fields are available and what it must produce — no implicit data passing.
-- **Conditional edges** (`should_replan`) implement the critic feedback loop cleanly: if score < 0.75 and budget remains, the graph re-routes to `plan_writer` with the critic's feedback injected into the prompt.
-- **Node isolation** — each node is a pure function that receives state and returns partial state updates. This makes individual nodes unit-testable in isolation.
+- **Typed state** (`AgentState` TypedDict) — every node knows exactly what fields are available and what it must produce
+- **Conditional edges** (`should_replan`) — if `critic_score < 0.75` and `loop_count < 3`, the graph re-routes to `plan_writer` with critic feedback injected into the prompt
+- **Node isolation** — each node is a pure function receiving state and returning partial state updates, making individual nodes unit-testable in isolation
 
-### What the Critic Loop Solves
+### The Critic Loop
 
-Without a critic, LLM-generated plans may be internally inconsistent: a plan might be labelled "deload" while still prescribing RPE 9 sessions, or claim groundedness while ignoring the retrieved sports science context entirely. The critic enforces 4 distinct quality dimensions:
+Without a critic, LLM-generated plans may be internally inconsistent. The critic enforces 4 quality dimensions:
 
-1. **Safety** — detects consecutive heavy compound sessions, deload violations
-2. **Coherence** — verifies the plan matches the progression decision action
-3. **Groundedness** — ensures the plan references retrieved knowledge, not hallucinated advice
-4. **Goal alignment** — checks that rep ranges and intensities match the user's stated goal
+| Dimension | What it checks |
+|---|---|
+| **Safety** | No consecutive heavy compound sessions; deload rules respected |
+| **Coherence** | Plan matches the progression decision (increase / maintain / deload) |
+| **Groundedness** | Advice references retrieved sports science, not hallucinated |
+| **Goal Alignment** | Rep ranges and intensities match the user's stated goal |
 
-By looping up to 3 times with specific actionable feedback, the system self-corrects without human intervention — a core property of agentic behaviour.
+The system self-corrects up to 3 times before emitting the final plan.
 
-### How RAG Grounds the Plan
+### RAG — How Plans Stay Grounded
 
-The `progression_planner` node builds a targeted query from the fatigue report and user goals (e.g., "deload protocol ACWR 1.7 overreaching recovery") and retrieves 4 chunks from the FAISS index with MMR reranking to reduce redundancy.
+The `progression_planner` builds a targeted query from the fatigue report and user goals (e.g. `"deload protocol ACWR 1.7 overreaching recovery"`), retrieves 4 MMR-reranked chunks from FAISS, and:
 
-This retrieved context is:
-1. Passed directly into the `progression_planner` prompt to ground the decision
-2. Stored in `AgentState.retrieved_context` and passed to `plan_writer`
-3. Displayed transparently in the Streamlit UI ("Sports Science Sources Used")
-4. Evaluated by the `critic` as part of the Groundedness score
+1. Injects them into the `progression_planner` prompt
+2. Stores them in `AgentState.retrieved_context` for `plan_writer`
+3. Displays sources transparently in the Streamlit UI
+4. Uses them as evidence in the `critic` Groundedness score
 
-This prevents the LLM from hallucinating training advice and ensures every adaptation decision can be traced back to specific evidence.
+### ACWR — Computed in Python, Not by the LLM
+
+The Acute:Chronic Workload Ratio is a safety-critical metric. Computing it inside the LLM risks hallucination on a number that directly gates whether the system prescribes a deload.
+
+`fatigue_analyst.py` computes ACWR deterministically in Python from the stored workout volumes, then **overwrites** whatever the LLM returns with the real value.
 
 ---
 
 ## Observability
 
-AdaptiveCoach instruments every LLM call and node execution with Langfuse:
+Every LLM call and node execution is instrumented with Langfuse:
 
-- **LangchainCallbackHandler** is passed into every `chain.invoke()` call, capturing inputs, outputs, latency, and token usage for each node.
-- **Named spans** via `trace_node(name)` context manager wrap each node's execution, creating a hierarchical trace that maps directly to the LangGraph pipeline stages.
-- **What Langfuse traces:**
-  - Full prompt + completion for each node (fatigue analysis, planner, nutrition, writer, critic)
-  - Token counts and cost per node
-  - Latency per node and total pipeline latency
-  - Loop iterations (loop_count visible in state at each trace)
-  - Critic scores across iterations — enabling analysis of how often plans fail quality checks
+- `LangchainCallbackHandler` captures prompt, completion, latency, and token usage per node
+- `trace_node(name)` context manager creates named spans mapping to each pipeline stage
+- Critic scores across loop iterations are visible — enabling analysis of how often plans fail quality checks
 
-This matters because multi-agent systems are opaque by default. Without tracing, a bad plan output is undebuggable — you cannot tell which node produced incorrect reasoning. With Langfuse, every failure is traceable to a specific prompt, a specific node, and a specific model response.
+Without tracing, a bad plan output is undebuggable. With Langfuse, every failure is traceable to a specific prompt, node, and model response.
 
 ---
 
@@ -168,27 +199,38 @@ This matters because multi-agent systems are opaque by default. Without tracing,
 
 ```
 adaptive_coach/
+├── app.py                     # Streamlit UI (4 tabs, Hevy-style logging)
 ├── main.py                    # CLI entry point
-├── app.py                     # Streamlit UI (4 tabs)
 ├── requirements.txt
 ├── .env.example
-├── README.md
+│
 ├── graph/
-│   ├── state.py               # AgentState TypedDict
-│   ├── graph.py               # StateGraph with conditional critic loop
-│   └── nodes/                 # One file per agent node
+│   ├── state.py               # AgentState TypedDict (13 fields)
+│   ├── graph.py               # StateGraph + conditional critic loop
+│   └── nodes/
+│       ├── context_loader.py
+│       ├── fatigue_analyst.py # Deterministic ACWR + LLM trend analysis
+│       ├── progression_planner.py  # RAG retrieval hub
+│       ├── nutrition_advisor.py    # TDEE + carb periodisation
+│       ├── plan_writer.py
+│       └── critic.py
+│
 ├── rag/
 │   ├── ingest.py              # Chunk → embed → FAISS
-│   ├── retriever.py           # MMR search wrapper
+│   ├── retriever.py           # MMR search wrapper (lazy singleton)
 │   └── knowledge_base/
-│       └── sports_science.md  # 1800+ word evidence base
+│       └── sports_science.md  # 1,800+ word evidence base
+│
 ├── prompts/                   # ChatPromptTemplate per node
+├── models/
+│   └── schemas.py             # Pydantic v2 (SetEntry, LoggedExercise, etc.)
 ├── memory/
 │   ├── session_memory.py      # SQLChatMessageHistory (SQLite)
-│   └── workout_store.py       # JSON-based workout log persistence
+│   └── workout_store.py       # JSON workout log (per-set storage)
 ├── tracing/
-│   └── langfuse_config.py     # Langfuse client + callbacks
-├── models/
-│   └── schemas.py             # Pydantic v2 models
-└── tests/                     # pytest suite
+│   └── langfuse_config.py     # Langfuse client + graceful degradation
+└── tests/
+    ├── test_fatigue_analyst.py
+    ├── test_critic_loop.py
+    └── test_rag_retriever.py
 ```
