@@ -1,28 +1,34 @@
 import json
 
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser
-
+from config.models import get_llm
 from graph.state import AgentState
-from prompts.plan_writer import PLAN_WRITER_PROMPT
-from tracing.langfuse_config import trace_node, get_callbacks
+from graph.agent_runner import run_tool_agent
+from graph.tools import build_history_tools
+from prompts.plan_writer import PLAN_WRITER_SYSTEM, PLAN_WRITER_USER
+from tracing.langfuse_config import trace_node
 
 
 def plan_writer(state: AgentState) -> dict:
     with trace_node("plan_writer"):
-        llm = ChatOpenAI(model="gpt-4o", temperature=0.3)
-        chain = PLAN_WRITER_PROMPT | llm | JsonOutputParser()
+        llm = get_llm("plan_writer", temperature=0.3)
+        tools = build_history_tools(
+            state.get("workout_history", []),
+            state.get("current_week_log", []),
+        )
 
-        result = chain.invoke(
-            {
-                "user_profile": json.dumps(state.get("user_profile", {}), indent=2),
-                "fatigue_report": json.dumps(state.get("fatigue_report", {}), indent=2),
-                "progression_decision": json.dumps(state.get("progression_decision", {}), indent=2),
-                "nutrition_targets": json.dumps(state.get("nutrition_targets", {}), indent=2),
-                "retrieved_context": state.get("retrieved_context", ""),
-                "critic_feedback": state.get("critic_feedback", ""),
-            },
-            config={"callbacks": get_callbacks()},
+        result = run_tool_agent(
+            llm,
+            tools,
+            system_prompt=PLAN_WRITER_SYSTEM,
+            user_prompt=PLAN_WRITER_USER.format(
+                user_profile=json.dumps(state.get("user_profile", {})),
+                fatigue_report=json.dumps(state.get("fatigue_report", {})),
+                progression_decision=json.dumps(state.get("progression_decision", {})),
+                nutrition_targets=json.dumps(state.get("nutrition_targets", {})),
+                retrieved_context=state.get("retrieved_context", ""),
+                critic_feedback=state.get("critic_feedback", "") or "(none)",
+            ),
+            agent_name="plan_writer",
         )
 
         return {

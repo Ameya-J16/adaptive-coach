@@ -1,25 +1,11 @@
 import json
 
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser
-
+from config.models import get_llm
 from graph.state import AgentState
-from prompts.progression_planner import PROGRESSION_PLANNER_PROMPT
-from rag.retriever import retrieve
-from tracing.langfuse_config import trace_node, get_callbacks
-
-
-def _build_rag_query(fatigue_report: dict, user_profile: dict) -> str:
-    fatigue_level = fatigue_report.get("fatigue_level", "green")
-    goals = user_profile.get("goals", "strength")
-    acwr = fatigue_report.get("acwr", 1.0)
-
-    if fatigue_level == "red":
-        return f"deload protocol ACWR {acwr} overreaching recovery"
-    elif fatigue_level == "amber":
-        return f"maintain training load exercise substitution fatigue management {goals}"
-    else:
-        return f"progressive overload principles {goals} volume increase periodisation"
+from graph.agent_runner import run_tool_agent
+from graph.tools import build_history_tools, build_search_tool
+from prompts.progression_planner import PROGRESSION_PLANNER_SYSTEM, PROGRESSION_PLANNER_USER
+from tracing.langfuse_config import trace_node
 
 
 def progression_planner(state: AgentState) -> dict:
@@ -27,22 +13,32 @@ def progression_planner(state: AgentState) -> dict:
         fatigue_report = state.get("fatigue_report", {})
         user_profile = state.get("user_profile", {})
         workout_history = state.get("workout_history", [])
+        current_week_log = state.get("current_week_log", [])
 
-        rag_query = _build_rag_query(fatigue_report, user_profile)
-        retrieved_context = retrieve(rag_query, k=4)
+        # Everything the agent retrieves lands here, so downstream nodes
+        # (plan_writer grounding, critic verification) see the same evidence.
+        collected_chunks: list[str] = []
+        tools = build_history_tools(workout_history, current_week_log) + [
+            build_search_tool(collected_chunks)
+        ]
 
-        llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
-        chain = PROGRESSION_PLANNER_PROMPT | llm | JsonOutputParser()
+        llm = get_llm("progression_planner", temperature=0.2)
 
-        result = chain.invoke(
-            {
-                "fatigue_report": json.dumps(fatigue_report, indent=2),
-                "user_profile": json.dumps(user_profile, indent=2),
-                "workout_history": json.dumps(workout_history, indent=2),
-                "retrieved_context": retrieved_context,
-            },
-            config={"callbacks": get_callbacks()},
+        result = run_tool_agent(
+            llm,
+            tools,
+            system_prompt=PROGRESSION_PLANNER_SYSTEM,
+            user_prompt=PROGRESSION_PLANNER_USER.format(
+                fatigue_report=json.dumps(fatigue_report),
+                user_profile=json.dumps(user_profile),
+            ),
+            agent_name="progression_planner",
         )
+
+        # Dedup chunks while preserving retrieval order.
+        retrieved_context = "\n\n---\n\n".join(dict.fromkeys(collected_chunks))
+        if not retrieved_context:
+            retrieved_context = "(the planner agent did not retrieve any knowledge-base context)"
 
         return {
             "progression_decision": result,
