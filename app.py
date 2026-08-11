@@ -26,6 +26,14 @@ with st.sidebar:
     st.divider()
     user_id = st.text_input("User ID", value="default_user", key="user_id_input")
     st.caption("Your plans and workouts are stored locally under this ID.")
+    st.divider()
+    try:
+        from config.models import describe as _describe_llm
+        from rag.embeddings import describe as _describe_embeddings
+        st.caption(f"**Agents:** {_describe_llm()}")
+        st.caption(f"**Embeddings:** {_describe_embeddings()}")
+    except Exception as e:
+        st.caption(f"⚠️ Model config error: {e}")
 
 # ── Page tabs ───────────────────────────────────────────────────────────────
 tab_plan, tab_log, tab_history, tab_profile = st.tabs([
@@ -47,6 +55,7 @@ with tab_plan:
     if generate_btn:
         from graph.graph import graph
         from main import _load_profile
+        from tracing.langfuse_config import flush
 
         initial_state = {
             "user_id": user_id,
@@ -64,8 +73,36 @@ with tab_plan:
             "messages": [],
         }
 
-        with st.spinner("Running multi-agent pipeline (context → fatigue → planner → nutrition → writer → critic)..."):
-            result = graph.invoke(initial_state)
+        # Stream node-by-node so a slow node is visible rather than looking hung.
+        # Each LLM node sends ~7k tokens of history, so a full run is minutes.
+        LABELS = {
+            "context_loader": "Loading history and session memory",
+            "fatigue_analyst": "Computing ACWR and analysing fatigue",
+            "progression_planner": "Retrieving sports science (RAG) and deciding load",
+            "nutrition_advisor": "Calculating training/rest day macros",
+            "plan_writer": "Writing the 7-day plan",
+            "critic": "Scoring the plan (safety, coherence, groundedness, goals)",
+        }
+
+        status = st.status("Running multi-agent pipeline...", expanded=True)
+        result = dict(initial_state)
+        try:
+            for update in graph.stream(initial_state, stream_mode="updates"):
+                for node, patch in update.items():
+                    result.update(patch or {})
+                    status.write(f"**{node}** — {LABELS.get(node, '')}")
+                    if node == "critic":
+                        status.write(
+                            f"  ↳ score {result.get('critic_score', 0):.2f} "
+                            f"· loop {result.get('loop_count', 0)}"
+                        )
+            status.update(label="Pipeline complete", state="complete", expanded=False)
+        except Exception as e:
+            status.update(label="Pipeline failed", state="error", expanded=True)
+            st.error(f"{type(e).__name__}: {e}")
+            st.stop()
+        finally:
+            flush()
 
         st.session_state["last_result"] = result
 
@@ -85,7 +122,8 @@ with tab_plan:
         with col_a:
             st.metric("Fatigue Level", f"{badge_color} {fatigue_level.upper()}")
         with col_b:
-            st.metric("ACWR", f"{fr.get('acwr', 0):.2f}")
+            acwr = fr.get("acwr")
+            st.metric("ACWR", f"{acwr:.2f}" if acwr is not None else "no baseline")
         with col_c:
             st.metric("Progression Action", pd_res.get("action", "N/A").upper())
 
@@ -283,25 +321,44 @@ with tab_log:
 
     # ── Log Workout button ──
     st.divider()
+
+    # Surface the result of the previous run's save (st.rerun() wipes messages
+    # written before it, so the confirmation has to survive in session_state).
+    if st.session_state.pop("log_success", None):
+        st.success(st.session_state.pop("log_success_msg", "Workout logged."))
+
     if st.button("Log Workout", type="primary", use_container_width=True, key="log_submit_btn"):
         from memory.workout_store import log_workout
-        valid_exercises = [e for e in st.session_state.log_exercises if e["name"].strip()]
-        session = {
-            "date": session_date.isoformat(),
-            "exercises": valid_exercises,
-            "avg_rpe": avg_rpe,
-            "session_type": session_type,
-            "notes": notes,
-        }
-        log_workout(user_id, session)
-        total_vol = sum(
-            s["reps"] * s["weight_kg"]
-            for e in valid_exercises
-            for s in e.get("sets_data", [])
-        )
-        st.success(f"Workout logged! {len(valid_exercises)} exercises | Total volume: {total_vol:.0f} kg")
-        st.session_state.log_exercises = []
-        st.rerun()
+
+        valid_exercises = [
+            e for e in st.session_state.log_exercises
+            if e["name"].strip() and e.get("sets_data")
+        ]
+
+        if not valid_exercises:
+            st.error("Nothing to log — add at least one named exercise with a set.")
+        else:
+            session = {
+                "date": session_date.isoformat(),
+                "exercises": valid_exercises,
+                "avg_rpe": avg_rpe,
+                "session_type": session_type,
+                "notes": notes,
+            }
+            log_workout(user_id, session)
+            total_vol = sum(
+                s["reps"] * s["weight_kg"]
+                for e in valid_exercises
+                for s in e.get("sets_data", [])
+            )
+            st.session_state.log_success = True
+            st.session_state.log_success_msg = (
+                f"Workout logged for {session_date.isoformat()} — "
+                f"{len(valid_exercises)} exercises | Total volume: {total_vol:.0f} kg. "
+                f"See the History tab."
+            )
+            st.session_state.log_exercises = []
+            st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
