@@ -9,7 +9,10 @@ def context_loader(state: AgentState) -> dict:
     with trace_node("context_loader"):
         user_id = state["user_id"]
 
-        workout_history = get_history(user_id, weeks=4)
+        # 5 rolling weeks, not 4: the ACWR chronic window covers the 4 calendar
+        # weeks before this one, whose oldest Monday can be up to 4 weeks + 6
+        # days ago — a 4-week rolling cutoff truncates it.
+        workout_history = get_history(user_id, weeks=5)
         current_week_log = get_current_week(user_id)
         messages = get_messages_as_dicts(user_id)
 
