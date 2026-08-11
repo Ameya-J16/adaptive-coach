@@ -6,6 +6,7 @@ getting it wrong silently discards correct edits.
 """
 import sys
 import os
+from datetime import date, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from graph.adaptation_tools import build_adaptation_tools
@@ -115,7 +116,9 @@ class TestSafetyGateDiff:
         # A plan that already violates coherence: 'deload' with no volume cut.
         plan = _plan()
         decision = {"action": "deload", "exercises_to_swap": []}
-        history = [{"date": "2026-07-20",
+        # Relative date: must stay inside the 4-week baseline window whenever this runs.
+        two_weeks_ago = (date.today() - timedelta(days=14)).isoformat()
+        history = [{"date": two_weeks_ago,
                     "exercises": [{"sets": 1, "reps": 1, "weight_kg": 4000}]}]
 
         before = set(check_plan(plan, self.GREEN, decision, history)["violations"])
