@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-05T14:06:41",
+  "model": "gpt-4o",
+  "pass_threshold": 0.75,
+  "dimension_low_threshold": 0.6,
+  "n_cases": 1,
+  "metrics": {
+    "verdict_accuracy": 1.0,
+    "false_pass_rate": 0.0,
+    "false_fail_rate": 0.0,
+    "dimension_detection_rate": null,
+    "mean_good_score": 0.8,
+    "mean_flawed_score": null,
+    "min_good_score": 0.8,
+    "max_flawed_score": null
+  },
+  "cases": [
+    {
+      "name": "good_endurance_mix",
+      "description": "Endurance athlete: run quality + long run + 2 strength support days",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.8,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.7,
+        "coherence": 0.8,
+        "groundedness": 0.9,
+        "goal_alignment": 0.8
+      },
+      "violations": [],
+      "issues_found": [
+        "Tuesday strength session is too close to Monday's high-intensity cardio, potentially affecting recovery.",
+        "Friday strength session is too close to Sunday's long run, potentially affecting recovery.",
+        "Plan lacks a clear explanation of how strength exercises specifically support running economy."
+      ],
+      "verdict_correct": true
+    }
+  ]
+}
