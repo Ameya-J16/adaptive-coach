@@ -3,7 +3,6 @@ Streamlit UI for AdaptiveCoach.
 Run with: streamlit run app.py
 """
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 

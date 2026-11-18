@@ -2,6 +2,7 @@
 
 > A LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan — with full Langfuse observability.
 
+[![CI](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
@@ -82,7 +83,8 @@
 | Observability | Langfuse (spans, token counts, latency) |
 | Schemas | Pydantic v2 |
 | UI | Streamlit (4 tabs, Hevy-style per-set logging) |
-| Tests | pytest |
+| Tests | pytest, pytest-cov, golden-set eval harness |
+| CI | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests) |
 
 ---
 
@@ -138,8 +140,17 @@ python main.py --user-id ameya --action history  # view history
 ### 6. Run tests
 
 ```bash
-pytest tests/ -v
+pip install -r requirements-dev.txt
+ruff check .                                   # lint
+python -m pytest -q --cov=graph --cov=evals    # 71 tests + coverage (offline, no API keys)
+python -m evals.run_eval --offline             # critic golden set, deterministic layer
+python -m evals.run_eval                       # full live critic eval (calls the LLM)
 ```
+
+GitHub Actions runs the same checks on every push and pull request
+(`.github/workflows/ci.yml`): a ruff lint job, the test suite with coverage
+on Python 3.11, 3.12 and 3.13, the offline golden-set eval, and a job that
+builds the FAISS index from the paper corpus and runs the retrieval tests.
 
 ---
 
