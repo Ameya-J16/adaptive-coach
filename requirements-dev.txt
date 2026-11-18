@@ -1,0 +1,4 @@
+# Test and lint tooling, used locally and in CI (.github/workflows/ci.yml).
+-r requirements.txt
+pytest-cov>=5.0.0
+ruff>=0.6.0

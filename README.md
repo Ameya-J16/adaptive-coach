@@ -2,6 +2,7 @@
 
 > A LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan — with full Langfuse observability.
 
+[![CI](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
@@ -82,7 +83,9 @@
 | Observability | Langfuse (spans, token counts, latency) |
 | Schemas | Pydantic v2 |
 | UI | Streamlit (4 tabs, Hevy-style per-set logging) |
-| Tests | pytest |
+| Tests | pytest, pytest-cov, golden-set eval harness |
+| CI/CD | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests, Docker smoke test) → auto-deploy to Streamlit Community Cloud |
+| Container | Docker image (Python 3.12, index baked in), smoke-tested in CI |
 
 ---
 
@@ -138,7 +141,46 @@ python main.py --user-id ameya --action history  # view history
 ### 6. Run tests
 
 ```bash
-pytest tests/ -v
+pip install -r requirements-dev.txt
+ruff check .                                   # lint
+python -m pytest -q --cov=graph --cov=evals    # 71 tests + coverage (offline, no API keys)
+python -m evals.run_eval --offline             # critic golden set, deterministic layer
+python -m evals.run_eval                       # full live critic eval (calls the LLM)
+```
+
+GitHub Actions runs the same checks on every push and pull request
+(`.github/workflows/ci.yml`): a ruff lint job, the test suite with coverage
+on Python 3.11, 3.12 and 3.13, the offline golden-set eval, and a job that
+builds the FAISS index from the paper corpus and runs the retrieval tests, and a
+Docker smoke test that builds the image and waits for the app's health check.
+
+### 7. Deploy (CD)
+
+Every push to `main` that passes all of the checks above is published by the
+`deploy` job to the **`deploy` branch**: a single snapshot commit of the code
+plus the FAISS index built and tested in the same run. Streamlit Community
+Cloud watches that branch and redeploys on every update, so nothing reaches
+the live app without passing CI.
+
+One-time setup (free, no tokens needed):
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
+2. **Create app** → repository `Ameya-J16/adaptive-coach`, branch **`deploy`**,
+   main file `app.py`.
+3. **Advanced settings** → Python 3.12, and paste the secrets the app needs
+   (TOML), e.g. `OPENAI_API_KEY = "..."`, or `LLM_PROVIDER = "groq"` plus
+   `GROQ_API_KEY = "..."`. Leave `EMBEDDING_PROVIDER` unset: the shipped index
+   is built with local embeddings.
+4. Deploy. The `deploy` branch appears after the first green push to `main`.
+
+On first start the app seeds the demo personas, since the hosted `data/`
+folder starts empty and resets whenever the app restarts.
+
+The same app also runs as a container:
+
+```bash
+docker build -t adaptive-coach .
+docker run -p 7860:7860 --env-file .env adaptive-coach   # http://localhost:7860
 ```
 
 ---

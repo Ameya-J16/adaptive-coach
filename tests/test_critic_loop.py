@@ -1,119 +1,137 @@
-"""Tests for critic loop logic — loop_count increments, exit conditions, safety scoring."""
+"""Tests for critic loop routing and the deterministic plan-check rule engine."""
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from datetime import datetime, timedelta
+
 from graph.graph import should_replan
+from graph.plan_checks import check_plan, plan_volume
 
 
 class TestCriticLoopLogic:
     def test_low_score_triggers_replan(self):
-        """Score < 0.75 and loop_count < 3 should route to 'replan'."""
         state = {"critic_score": 0.60, "loop_count": 1}
         assert should_replan(state) == "replan"
 
     def test_high_score_exits_loop(self):
-        """Score >= 0.75 should route to 'end' regardless of loop count."""
         state = {"critic_score": 0.80, "loop_count": 0}
         assert should_replan(state) == "end"
 
     def test_exact_threshold_exits(self):
-        """Score exactly 0.75 should exit (not replan)."""
         state = {"critic_score": 0.75, "loop_count": 0}
         assert should_replan(state) == "end"
 
     def test_loop_exits_after_3_iterations(self):
-        """After 3 loops, exit regardless of score."""
         state = {"critic_score": 0.40, "loop_count": 3}
         assert should_replan(state) == "end"
 
     def test_loop_count_boundary(self):
-        """loop_count=2 with low score should still replan (< 3 budget)."""
         state = {"critic_score": 0.50, "loop_count": 2}
         assert should_replan(state) == "replan"
 
     def test_loop_count_4_exits(self):
-        """loop_count > 3 should always exit."""
         state = {"critic_score": 0.10, "loop_count": 4}
         assert should_replan(state) == "end"
 
 
-class TestCriticSafetyRules:
-    def test_consecutive_heavy_leg_days_unsafe(self):
-        """A plan with consecutive heavy squat days should score below 0.75 safety."""
-        # Construct a plan that violates the consecutive heavy compound rule
-        heavy_squat = {
-            "session_type": "strength",
-            "exercises": [
-                {"name": "Squat", "sets": 5, "reps": 5, "weight_kg": 100, "rpe_target": 9.0, "muscle_groups": ["quads", "glutes"]},
-                {"name": "Romanian Deadlift", "sets": 4, "reps": 6, "weight_kg": 80, "rpe_target": 8.5, "muscle_groups": ["hamstrings", "glutes"]},
-            ],
-            "notes": "Heavy lower day",
+def _day(exercises: list[dict], session_type: str = "strength") -> dict:
+    return {"session_type": session_type, "exercises": exercises, "notes": ""}
+
+
+def _rest() -> dict:
+    return _day([], "rest")
+
+
+def _ex(name: str, sets: int, reps: int, weight: float, rpe: float, muscles: list[str]) -> dict:
+    return {
+        "name": name, "sets": sets, "reps": reps, "weight_kg": weight,
+        "rpe_target": rpe, "muscle_groups": muscles,
+    }
+
+
+def _plan(**days) -> dict:
+    base = {d: _rest() for d in
+            ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]}
+    base.update(days)
+    return {"week_start_date": "2026-08-10", "days": base, "overall_notes": ""}
+
+
+def _history_weeks(weekly_volume: float, weeks: int = 4) -> list[dict]:
+    """One session per prior calendar week carrying the full weekly volume."""
+    today = datetime.now().date()
+    this_monday = today - timedelta(days=today.weekday())
+    return [
+        {
+            "date": (this_monday - timedelta(weeks=w + 1)).isoformat(),
+            "exercises": [{"sets": 1, "reps": 1, "weight_kg": weekly_volume}],
         }
+        for w in range(weeks)
+    ]
 
-        bad_plan = {
-            "week_start_date": "2026-04-14",
-            "days": {
-                "monday": heavy_squat,
-                "tuesday": heavy_squat,  # consecutive heavy lower — safety violation
-                "wednesday": {"session_type": "rest", "exercises": [], "notes": "Rest"},
-                "thursday": {"session_type": "strength", "exercises": [], "notes": "Upper"},
-                "friday": {"session_type": "rest", "exercises": [], "notes": "Rest"},
-                "saturday": {"session_type": "rest", "exercises": [], "notes": "Rest"},
-                "sunday": {"session_type": "rest", "exercises": [], "notes": "Rest"},
-            },
-            "overall_notes": "Standard week",
-        }
 
-        # Simulate critic safety evaluation logic
-        days_list = list(bad_plan["days"].values())
-        consecutive_heavy_violation = False
-        for i in range(len(days_list) - 1):
-            day_a = days_list[i]
-            day_b = days_list[i + 1]
-            if day_a["session_type"] == "strength" and day_b["session_type"] == "strength":
-                ex_a = day_a.get("exercises", [])
-                ex_b = day_b.get("exercises", [])
-                # Both days have exercises with RPE > 7 targeting lower body
-                heavy_lower_a = any(
-                    e.get("rpe_target", 0) > 7 and
-                    any(mg in ["quads", "hamstrings", "glutes"] for mg in e.get("muscle_groups", []))
-                    for e in ex_a
-                )
-                heavy_lower_b = any(
-                    e.get("rpe_target", 0) > 7 and
-                    any(mg in ["quads", "hamstrings", "glutes"] for mg in e.get("muscle_groups", []))
-                    for e in ex_b
-                )
-                if heavy_lower_a and heavy_lower_b:
-                    consecutive_heavy_violation = True
+GREEN = {"fatigue_level": "green", "acwr": 1.0, "acwr_status": "computed"}
+RED = {"fatigue_level": "red", "acwr": 1.7, "acwr_status": "computed"}
 
-        assert consecutive_heavy_violation, "Expected to detect consecutive heavy lower body days"
 
-    def test_deload_plan_with_high_rpe_flags_unsafe(self):
-        """A deload plan with RPE 9+ targets should be flagged as unsafe."""
-        deload_plan_with_high_rpe = {
-            "week_start_date": "2026-04-14",
-            "days": {
-                "monday": {
-                    "session_type": "deload",
-                    "exercises": [
-                        {"name": "Squat", "sets": 3, "reps": 5, "weight_kg": 120, "rpe_target": 9.5, "muscle_groups": ["quads"]},
-                    ],
-                    "notes": "Deload but high RPE — this is wrong",
-                },
-            },
-            "overall_notes": "Deload week",
-        }
+class TestPlanChecks:
+    def test_consecutive_heavy_same_muscles_zeroes_safety(self):
+        heavy_squat = _day([_ex("Squat", 5, 5, 100, 9.0, ["quads", "glutes"])])
+        plan = _plan(monday=heavy_squat, tuesday=heavy_squat)
+        checks = check_plan(plan, GREEN, {"action": "maintain"}, [])
+        assert checks["safety_cap"] == 0.0
+        assert any("consecutive" in v.lower() for v in checks["violations"])
 
-        progression_decision = {"action": "deload", "load_adjustment_percent": -30}
+    def test_alternating_muscle_groups_is_safe(self):
+        lower = _day([_ex("Squat", 5, 5, 100, 8.0, ["quads"])])
+        upper = _day([_ex("Bench Press", 5, 5, 80, 8.0, ["chest"])])
+        plan = _plan(monday=lower, tuesday=upper)
+        checks = check_plan(plan, GREEN, {"action": "maintain"}, [])
+        assert checks["safety_cap"] == 1.0
 
-        # Check for deload + high RPE violation
-        has_violation = False
-        if progression_decision["action"] == "deload":
-            for day in deload_plan_with_high_rpe["days"].values():
-                for ex in day.get("exercises", []):
-                    if ex.get("rpe_target", 0) > 9:
-                        has_violation = True
+    def test_red_fatigue_with_four_hard_days_capped(self):
+        hard = _day([_ex("Squat", 3, 5, 100, 8.0, ["quads"])])
+        hard2 = _day([_ex("Bench Press", 3, 5, 80, 8.0, ["chest"])])
+        hard3 = _day([_ex("Deadlift", 3, 5, 120, 8.0, ["hamstrings"])])
+        hard4 = _day([_ex("Overhead Press", 3, 5, 50, 8.0, ["shoulders"])])
+        plan = _plan(monday=hard, wednesday=hard2, friday=hard3, sunday=hard4)
+        checks = check_plan(plan, RED, {"action": "deload"}, [])
+        assert checks["safety_cap"] <= 0.7
 
-        assert has_violation, "Expected to detect high RPE during deload"
+    def test_deload_with_rpe_above_nine_capped(self):
+        plan = _plan(monday=_day([_ex("Squat", 3, 5, 120, 9.5, ["quads"])]))
+        checks = check_plan(plan, RED, {"action": "deload"}, [])
+        assert checks["safety_cap"] <= 0.8
+        assert any("9.5" in v for v in checks["violations"])
+
+    def test_deload_without_volume_reduction_zeroes_coherence(self):
+        history = _history_weeks(5000)
+        # planned volume == baseline: not a deload at all
+        plan = _plan(monday=_day([_ex("Squat", 5, 10, 100, 6.0, ["quads"])]))
+        assert plan_volume(plan) == 5000
+        checks = check_plan(plan, RED, {"action": "deload"}, history)
+        assert checks["coherence_cap"] == 0.0
+
+    def test_real_deload_passes_coherence(self):
+        history = _history_weeks(5000)
+        plan = _plan(monday=_day([_ex("Squat", 5, 6, 100, 6.0, ["quads"])]))  # 3000kg = 60%
+        checks = check_plan(plan, RED, {"action": "deload"}, history)
+        assert checks["coherence_cap"] == 1.0
+
+    def test_increase_without_increase_capped(self):
+        history = _history_weeks(5000)
+        plan = _plan(monday=_day([_ex("Squat", 5, 8, 100, 7.0, ["quads"])]))  # 4000kg
+        checks = check_plan(plan, GREEN, {"action": "increase"}, history)
+        assert checks["coherence_cap"] <= 0.4
+
+    def test_swapped_exercise_reappearing_capped(self):
+        plan = _plan(monday=_day([_ex("Barbell Squat", 3, 8, 80, 7.0, ["quads"])]))
+        decision = {"action": "maintain", "exercises_to_swap": ["Squat"]}
+        checks = check_plan(plan, GREEN, decision, [])
+        assert checks["coherence_cap"] <= 0.5
+
+    def test_no_history_skips_volume_checks(self):
+        plan = _plan(monday=_day([_ex("Squat", 3, 8, 40, 6.0, ["quads"])]))
+        checks = check_plan(plan, {"fatigue_level": "amber", "acwr": None}, {"action": "maintain"}, [])
+        assert checks["coherence_cap"] == 1.0
+        assert checks["safety_cap"] == 1.0

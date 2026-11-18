@@ -1,0 +1,343 @@
+{
+  "timestamp": "2026-08-05T03:02:34",
+  "model": "gpt-4o",
+  "pass_threshold": 0.75,
+  "dimension_low_threshold": 0.6,
+  "n_cases": 14,
+  "metrics": {
+    "verdict_accuracy": 0.9,
+    "false_pass_rate": 0.0,
+    "false_fail_rate": 0.1,
+    "dimension_detection_rate": 1.0,
+    "mean_good_score": 0.792,
+    "mean_flawed_score": 0.609,
+    "min_good_score": 0.7,
+    "max_flawed_score": 0.7,
+    "score_separation": 0.183
+  },
+  "cases": [
+    {
+      "name": "good_green_increase",
+      "description": "Green athlete, increase action, volume +7%, 2x frequency, grounded notes",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.875,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.8,
+        "groundedness": 1.0,
+        "goal_alignment": 0.8
+      },
+      "violations": [],
+      "issues_found": [
+        "Thursday and Friday sessions have slightly lower RPE targets than Monday and Tuesday, which may not align with the goal of hypertrophy where consistent intensity is beneficial.",
+        "The plan does not explicitly address progression in terms of increasing reps or sets, which is a common approach for intermediates."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_red_deload",
+      "description": "Red athlete, deload action, volume 60% of baseline, RPE ~6, 4 rest days",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.825,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.7,
+        "coherence": 0.8,
+        "groundedness": 0.9,
+        "goal_alignment": 0.9
+      },
+      "violations": [],
+      "issues_found": [
+        "Volume reduction is only 40%, not the recommended 40-50% for a deload.",
+        "Intensity reduction is not clearly over 20% for all exercises, which is required for ACWR > 1.5.",
+        "The plan does not explicitly state adherence to the deload protocol for overreaching as per the knowledge base."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_amber_maintain",
+      "description": "Amber athlete, maintain action, volume ~99% of baseline, RPE <= 8",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.825,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.7,
+        "coherence": 0.8,
+        "groundedness": 0.9,
+        "goal_alignment": 0.9
+      },
+      "violations": [],
+      "issues_found": [
+        "Saturday's session is too close to Wednesday's lower body session, potentially compromising recovery.",
+        "The plan does not explicitly address the recommendation to avoid intensity increases despite the amber fatigue level.",
+        "The plan's overall notes claim compounds are kept below RPE 8, but this is not consistently applied across all exercises."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_fresh_start",
+      "description": "No-history beginner, conservative starter plan at RPE 6",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.75,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.8,
+        "groundedness": 1.0,
+        "goal_alignment": 0.3
+      },
+      "violations": [],
+      "issues_found": [
+        "Insufficient volume for strength maintenance: only 6 sets per muscle group per week.",
+        "No progression in load or reps across the week, contrary to linear progression principles."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_swap_honoured",
+      "description": "Maintain with exercises_to_swap correctly substituted",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.775,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.7,
+        "groundedness": 0.9,
+        "goal_alignment": 0.7
+      },
+      "violations": [],
+      "issues_found": [
+        "Saturday's session repeats Wednesday's exercises without sufficient variation, potentially leading to adaptation plateaus.",
+        "The plan does not adjust volume or intensity despite the amber fatigue level, which suggests a need for caution.",
+        "The plan's overall notes mention maintaining volume at baseline, but the ACWR suggests a need for monitoring and potential load reduction."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_endurance_mix",
+      "description": "Endurance athlete: run quality + long run + 2 strength support days",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.9,
+        "groundedness": 0.5,
+        "goal_alignment": 0.6
+      },
+      "violations": [],
+      "issues_found": [
+        "RPE for cardio sessions on Monday and Thursday may be too high for endurance focus.",
+        "Strength training rep ranges on Tuesday and Friday are not optimal for endurance goals.",
+        "No evidence found supporting the specific RPE targets for endurance training in the provided context."
+      ],
+      "verdict_correct": false
+    },
+    {
+      "name": "bad_consecutive_heavy",
+      "description": "Same heavy lower-body session on consecutive days",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.475,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.0,
+        "coherence": 0.8,
+        "groundedness": 0.5,
+        "goal_alignment": 0.6
+      },
+      "violations": [
+        "SAFETY: monday and tuesday both load ['glutes', 'hamstrings', 'quads'] above RPE 7.0 \u2014 consecutive heavy sessions for the same muscle group."
+      ],
+      "issues_found": [
+        "Back-to-back heavy lower sessions on Monday and Tuesday violate recovery guidelines for large compound movements.",
+        "The plan's overall notes claim back-to-back heavy lower sessions maximize stimulus, which is unsupported by evidence.",
+        "The plan does not utilize undulating periodization, which could be more effective for hypertrophy in intermediate athletes.",
+        "The rep ranges for hypertrophy are not fully optimized; Monday and Tuesday use 5 reps, which is more strength-oriented."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_deload_no_reduction",
+      "description": "Deload action but planned volume ~= baseline",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.45,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.7,
+        "coherence": 0.0,
+        "groundedness": 0.5,
+        "goal_alignment": 0.6
+      },
+      "violations": [
+        "COHERENCE: action is deload but planned volume is 7397kg = 99% of the 7500kg weekly baseline (must be <= 85%)."
+      ],
+      "issues_found": [
+        "Volume deload not achieved: planned volume is 99% of baseline, should be <= 85%.",
+        "Intensity reduction insufficient: compound lifts should reduce intensity by at least 20%, but RPE targets remain high.",
+        "Deload protocol not fully grounded: plan does not reduce total sets per session by 40-50% as recommended.",
+        "Rep ranges for strength not verified: plan uses 8-10 reps which is higher than typical strength training rep ranges."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_increase_decrease",
+      "description": "Increase action but planned volume is 80% of baseline",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.4,
+        "groundedness": 0.9,
+        "goal_alignment": 0.6
+      },
+      "violations": [
+        "COHERENCE: action is increase but planned volume is 7197kg = 80% of baseline \u2014 no actual increase."
+      ],
+      "issues_found": [
+        "Volume decrease instead of increase despite progression decision to increase.",
+        "RPE targets are relatively low for hypertrophy focus, potentially limiting stimulus.",
+        "Only three training days per week, which may not be optimal for hypertrophy given the athlete's availability of five days.",
+        "Exercise selection lacks variety, particularly for hypertrophy, which benefits from a broader range of exercises."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_swap_ignored",
+      "description": "Exercise marked for substitution still appears in the plan",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.5,
+        "groundedness": 0.9,
+        "goal_alignment": 0.6
+      },
+      "violations": [
+        "COHERENCE: Barbell Squat on monday was marked for substitution but still appears in the plan.",
+        "COHERENCE: Squat on friday was marked for substitution but still appears in the plan."
+      ],
+      "issues_found": [
+        "Barbell Squat was not substituted on Monday despite being marked for swap.",
+        "Squat was not substituted on Friday despite being marked for swap.",
+        "Plan does not align with the recommendation to avoid intensity increases given the amber fatigue level.",
+        "Rep ranges for strength training are not fully aligned with the goal of strength, particularly on exercises like Leg Curl and Overhead Press."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_ungrounded_claims",
+      "description": "Plan notes cite claims the knowledge base contradicts (25-30% jumps, no deloads needed)",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "groundedness"
+      ],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.8,
+        "groundedness": 0.2,
+        "goal_alignment": 0.9
+      },
+      "violations": [],
+      "issues_found": [
+        "The plan claims a 25-30% weekly volume increase is standard for intermediates, which contradicts the evidence supporting a 5-10% increase.",
+        "The plan states deloads are unnecessary for athletes under 30, which is not supported by the evidence.",
+        "The overall notes suggest aggressive volume increases without considering the athlete's current fatigue level, which is green but does not justify exceeding recommended volume increases."
+      ],
+      "dimension_hits": {
+        "groundedness": true
+      }
+    },
+    {
+      "name": "bad_wrong_goal_reps",
+      "description": "Endurance goal but the plan is pure heavy triples with zero conditioning",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "goal_alignment"
+      ],
+      "overall": 0.575,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.7,
+        "groundedness": 0.5,
+        "goal_alignment": 0.3
+      },
+      "violations": [],
+      "issues_found": [
+        "The plan focuses on heavy triples, which is not aligned with endurance goals.",
+        "RPE targets are too high for an endurance-focused block, risking excessive fatigue.",
+        "No endurance-specific exercises or sessions are included in the plan."
+      ],
+      "dimension_hits": {
+        "goal_alignment": true
+      }
+    },
+    {
+      "name": "bad_deload_max_intensity",
+      "description": "Deload with correct volume cut but RPE 9 grinding on every lift",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "safety"
+      ],
+      "overall": 0.575,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.6,
+        "coherence": 0.6,
+        "groundedness": 0.5,
+        "goal_alignment": 0.6
+      },
+      "violations": [],
+      "issues_found": [
+        "RPE target during deload week is too high; should be capped at 6-7.",
+        "Deload protocol suggests maintaining load, but plan reduces load by 35%.",
+        "Plan does not reduce volume by 40-50% as recommended; only 2 sets per exercise.",
+        "Intensity remains high with RPE 9, contrary to deload recommendations."
+      ],
+      "dimension_hits": {
+        "safety": true
+      }
+    },
+    {
+      "name": "bad_no_rest_days",
+      "description": "Seven straight training days, zero rest, on a maintain week",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "safety"
+      ],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.6,
+        "coherence": 0.7,
+        "groundedness": 0.9,
+        "goal_alignment": 0.6
+      },
+      "violations": [],
+      "issues_found": [
+        "Seven consecutive training days without rest, violating recovery guidelines for strength training.",
+        "Repeated muscle group training without adequate recovery (e.g., squats on Tuesday, Thursday, and Saturday).",
+        "Plan does not incorporate rest days despite amber fatigue level, contradicting recovery recommendations.",
+        "Sunday's session focuses on arm isolation exercises, which may not align with the primary strength goal."
+      ],
+      "dimension_hits": {
+        "safety": true
+      }
+    }
+  ]
+}

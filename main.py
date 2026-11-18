@@ -8,7 +8,6 @@ Usage:
 """
 import argparse
 import json
-import sys
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -18,7 +17,6 @@ load_dotenv()
 
 def run_plan(user_id: str) -> None:
     from graph.graph import graph
-    from memory.workout_store import get_history, get_current_week
 
     print(f"\n[AdaptiveCoach] Generating adaptive plan for user: {user_id}")
     print("Running multi-agent pipeline...\n")
@@ -133,7 +131,6 @@ def run_history(user_id: str) -> None:
 
 def _load_profile(user_id: str) -> dict:
     """Load user profile from data/profiles/{user_id}.json or return defaults."""
-    import os
     from pathlib import Path
     profile_path = Path("data") / "profiles" / f"{user_id}.json"
     if profile_path.exists():

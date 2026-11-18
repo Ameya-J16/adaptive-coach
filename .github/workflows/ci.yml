@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the run still going for the old one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "ruff>=0.6.0"
+      - run: ruff check . --output-format=github
+
+  test:
+    name: Unit tests + offline eval (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+
+      # Deterministic suite: no API keys, no network. The 5 retrieval tests
+      # skip here (no index) and run in the `rag` job below.
+      - name: Run tests with coverage
+        run: >
+          python -m pytest -q
+          --cov=graph --cov=evals --cov=rag
+          --cov-report=term --cov-report=xml
+          --junitxml=test-results.xml
+
+      # Golden set: checks all 14 hand-labelled plans against the rule engine.
+      - name: Critic golden-set eval (offline)
+        run: python -m evals.run_eval --offline
+
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-py${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            test-results.xml
+
+  rag:
+    name: Build FAISS index + retrieval tests
+    runs-on: ubuntu-latest
+    env:
+      FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed_cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: pip install -r requirements-dev.txt
+
+      # The ~130 MB embedding model downloads once, then comes from cache.
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: .fastembed_cache
+          key: fastembed-bge-base-en-v1.5
+
+      # Rebuild the index only when the papers or the ingest code change.
+      - name: Cache FAISS index
+        id: index-cache
+        uses: actions/cache@v4
+        with:
+          path: rag/faiss_index
+          key: faiss-${{ hashFiles('rag/knowledge_base/**', 'rag/ingest.py', 'rag/embeddings.py') }}
+
+      - name: Build FAISS index
+        if: steps.index-cache.outputs.cache-hit != 'true'
+        run: python -m rag.ingest
+
+      - name: Retrieval tests
+        run: python -m pytest -q tests/test_rag_retriever.py
+
+      # The deploy job ships this exact, tested index.
+      - name: Upload FAISS index
+        uses: actions/upload-artifact@v4
+        with:
+          name: faiss-index
+          path: rag/faiss_index
+          retention-days: 7
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Index build is skipped here (the rag job already covers it); this job
+      # checks that the image builds and the app actually starts and serves.
+      - name: Build image
+        run: docker build --build-arg BUILD_INDEX=false -t adaptive-coach:ci .
+      - name: Start container and wait for the health check
+        run: |
+          docker run -d --name app -p 7860:7860 adaptive-coach:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:7860/_stcore/health; then echo; exit 0; fi
+            sleep 2
+          done
+          echo "App did not become healthy"; docker logs app; exit 1
+      - name: Container logs
+        if: always()
+        run: docker logs app || true
+
+  # CD: every green push to main is published to the `deploy` branch, which
+  # Streamlit Community Cloud watches and redeploys from. Nothing reaches the
+  # live app without passing every job above. The branch is a single snapshot
+  # commit: the code plus the FAISS index built and tested in the rag job
+  # (the index is gitignored on main, so it only exists on `deploy`).
+  deploy:
+    name: Publish deploy branch
+    needs: [lint, test, rag, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Never cancel a deploy halfway; queue the next one behind it instead.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble deploy snapshot
+        run: |
+          DEPLOY_DIR="$RUNNER_TEMP/deploy"
+          mkdir -p "$DEPLOY_DIR"
+          git archive HEAD | tar -x -C "$DEPLOY_DIR"
+          # No workflows on the deploy branch: it is output, not source.
+          rm -rf "$DEPLOY_DIR/.github"
+
+      - name: Add the tested FAISS index
+        uses: actions/download-artifact@v4
+        with:
+          name: faiss-index
+          path: ${{ runner.temp }}/deploy/rag/faiss_index
+
+      - name: Push to the deploy branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd "$RUNNER_TEMP/deploy"
+          test -f rag/faiss_index/index.faiss
+          git init -q -b deploy
+          git add -A
+          git add -f rag/faiss_index   # gitignored on main, shipped here
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Deploy ${GITHUB_SHA::7} (all CI checks passed)"
+          git push --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" deploy
