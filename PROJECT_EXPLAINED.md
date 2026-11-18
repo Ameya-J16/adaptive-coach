@@ -348,9 +348,16 @@ either defending it or quietly deleting it.
 > that after v1 rejected a correct injury swap for a problem the plan already had.
 
 **"What would you do next?"**
-> Extend the eval to cover routing and adaptation safety — the planning half is measured,
+> Add mocked-LLM tests for the agent loop (it's the least-covered code, 15%), then extend the eval to cover routing and adaptation safety — the planning half is measured,
 > the agentic half isn't yet. Then storage: it's flat JSON with no locking, so concurrent
 > users would corrupt each other.
+
+**"How is it tested?"**
+> Three layers. 71 pytest unit tests that run offline in about a second — no API keys,
+> no mocks, just hand-built plans and histories. A 14-case golden set that measures the
+> critic's verdict accuracy and false-pass rate. And GitHub Actions running all of it on
+> every push: ruff lint, the suite on Python 3.11–3.13 with coverage, the offline eval as
+> a build gate, and a job that builds the FAISS index and runs the retrieval tests.
 
 **"What was the hardest bug?"**
 > Three ACWR defects that all under-reported fatigue — the dangerous direction, since an
@@ -367,7 +374,9 @@ either defending it or quietly deleting it.
 | Agents | 6 specialists + 1 supervisor |
 | Tools | 12 (6 read, 6 write) |
 | Papers | 44, all CC BY, 896 chunks |
-| Tests | 71 |
+| Tests | 71 (66 offline + 5 retrieval), ~1 s |
+| Coverage | 56% overall; rule engine 97%, metrics 91% |
+| CI jobs | 5 per push (lint, tests x3 Python versions, RAG) |
 | Golden set | 14 cases |
 | Verdict accuracy | 100% |
 | False-pass rate | 0% |
@@ -406,9 +415,46 @@ python -m scripts.seed_demo_data      # demo personas, prints each ACWR
 python -m scripts.list_models         # what your API key can reach + tool-call test
 python -m evals.run_eval --offline    # free
 python -m evals.run_eval              # live
-python -m pytest tests/               # 71 tests
+pip install -r requirements-dev.txt   # adds pytest-cov + ruff
+ruff check .                          # lint
+python -m pytest -q --cov=graph --cov=evals   # 71 tests + coverage
 streamlit run app.py
 ```
 
 **Note:** Streamlit caches imported modules. Editing anything other than `app.py` needs a
 full Ctrl+C restart — a browser refresh silently runs stale code.
+
+---
+
+## 14. Testing and CI
+
+**Three layers, cheapest first:**
+
+| Layer | What | Cost |
+|---|---|---|
+| Unit tests | 71 pytest tests: ACWR maths, RIR metrics, rule engine, critic loop, adaptation tools + safety gate, nutrition, retrieval | free, ~1 s, offline |
+| Golden set | 14 hand-labelled plans (6 good, 8 flawed) — offline mode checks the rule layer, live mode runs the real critic | offline free / live ~API calls |
+| CI | GitHub Actions on every push and PR (`.github/workflows/ci.yml`) | free on public repos |
+
+**The CI pipeline (5 jobs, run in parallel):**
+
+1. **Lint** — `ruff` for syntax errors, undefined names, unused imports (it found 8)
+2. **Tests x 3** — pytest + coverage on Python 3.11, 3.12, 3.13; then the offline
+   golden-set eval, which fails the build if any of the 14 verdicts is wrong; uploads
+   `coverage.xml` and JUnit results
+3. **RAG** — downloads the embedding model, builds the FAISS index from the 44 papers,
+   runs the 5 retrieval tests. Model and index are cached, so the index only rebuilds
+   when the papers or the ingest code change.
+
+**Tools:** pytest, pytest-cov, ruff, GitHub Actions (`actions/cache`,
+`actions/upload-artifact`). No mocking library — tests build plain dicts.
+
+**Be honest about:**
+- Coverage is 56%. Deterministic code is well covered; the LLM-calling agents aren't,
+  because testing them properly needs mocked model responses.
+- It's CI, not CD — nothing deploys automatically.
+- CI never calls the LLM. The live eval is a manual step so the pipeline costs nothing.
+
+**Say:** "Every push is linted, tested on three Python versions, and gated on the golden
+set — if a change to the safety rules stops them flagging one of the known-bad plans, the
+build fails. The LLM half of the critic is checked by the live eval, run by hand."
