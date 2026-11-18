@@ -18,6 +18,21 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ── Demo data on hosted deploys ─────────────────────────────────────────────
+# Hosted deploys (Streamlit Community Cloud, Docker) start with an empty data/
+# folder and wipe it on restart. Seed the demo personas once per process when
+# no workout data exists; never touches a local install that already has data.
+@st.cache_resource(show_spinner="Loading demo personas…")
+def _seed_demo_data_if_empty() -> None:
+    workouts_dir = Path(__file__).parent / "data" / "workouts"
+    if workouts_dir.exists() and any(workouts_dir.glob("*.json")):
+        return
+    from scripts.seed_demo_data import seed
+    seed()
+
+
+_seed_demo_data_if_empty()
+
 # ── Sidebar: user identity ──────────────────────────────────────────────────
 with st.sidebar:
     st.title("🏋️ AdaptiveCoach")

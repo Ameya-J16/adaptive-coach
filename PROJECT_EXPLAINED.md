@@ -358,8 +358,9 @@ either defending it or quietly deleting it.
 > critic's verdict accuracy and false-pass rate. And GitHub Actions running all of it on
 > every push: ruff lint, the suite on Python 3.11–3.13 with coverage, the offline eval as
 > a build gate, a job that builds the FAISS index and runs the retrieval tests, and a
-> Docker smoke test. When all of that is green on `main`, the pipeline deploys the
-> Docker image to Hugging Face Spaces — so broken code can't reach the live app.
+> Docker smoke test. When all of that is green on `main`, the pipeline publishes a
+> `deploy` branch that Streamlit Community Cloud redeploys from — so broken code can't
+> reach the live app.
 
 **"What was the hardest bug?"**
 > Three ACWR defects that all under-reported fatigue — the dangerous direction, since an
@@ -449,17 +450,23 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
    when the papers or the ingest code change.
 4. **Docker** — builds the image and starts it, failing unless the app answers its
    health check
-5. **Deploy** (pushes to `main` only, after 1–4 pass) — pushes a snapshot to a
-   Hugging Face Space, which builds the `Dockerfile` and serves the app
+5. **Deploy** (pushes to `main` only, after 1–4 pass) — publishes the `deploy` branch:
+   one snapshot commit of the code plus the index the RAG job just built and tested.
+   Streamlit Community Cloud watches that branch and redeploys. No deploy tokens: the
+   job uses GitHub's built-in token, and the host only ever sees tested code.
 
-**The container** (`Dockerfile`, `scripts/start_space.sh`): Python 3.12, runs as a
-non-root user, bakes the embedding model and FAISS index into the image at build time
-(so startup is seconds, not minutes), and re-seeds the demo personas on every start —
-free hosting wipes local files, and the personas' history is dated relative to today.
-API keys live in the Space's secrets, never in the repo.
+**Why a `deploy` branch:** the FAISS index is a build output, so it's gitignored on
+`main`. CI builds it, tests it, and ships exactly that index alongside the code. On
+first start the app seeds the demo personas, because hosted storage starts empty.
+API keys live in Streamlit's secrets, never in the repo.
+
+**Why Hugging Face isn't the host:** the plan was Docker on Hugging Face Spaces, but in
+2026 Spaces moved Docker apps to the paid plan. The `Dockerfile` stayed as a portable
+image (`scripts/start_container.sh` is its entrypoint) that CI still builds and
+health-checks, so moving to any container host later is a config change.
 
 **Tools:** pytest, pytest-cov, ruff, Docker, GitHub Actions (`actions/cache`,
-`actions/upload-artifact`, environments), Hugging Face Spaces. No mocking library — tests build plain dicts.
+`actions/upload-artifact`), Streamlit Community Cloud. No mocking library — tests build plain dicts.
 
 **Be honest about:**
 - Coverage is 56%. Deterministic code is well covered; the LLM-calling agents aren't,
@@ -471,4 +478,4 @@ API keys live in the Space's secrets, never in the repo.
 **Say:** "Every push is linted, tested on three Python versions, smoke-tested as a Docker
 image, and gated on the golden set — if a change to the safety rules stops them flagging
 one of the known-bad plans, the build fails and nothing deploys. Green builds on main
-ship to Hugging Face automatically. The LLM half of the critic is checked by the live eval, run by hand."
+ship to Streamlit Community Cloud automatically. The LLM half of the critic is checked by the live eval, run by hand."

@@ -84,8 +84,8 @@
 | Schemas | Pydantic v2 |
 | UI | Streamlit (4 tabs, Hevy-style per-set logging) |
 | Tests | pytest, pytest-cov, golden-set eval harness |
-| CI/CD | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests, Docker smoke test) → auto-deploy to Hugging Face Spaces |
-| Container | Docker (Python 3.12, index baked in at build time) |
+| CI/CD | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests, Docker smoke test) → auto-deploy to Streamlit Community Cloud |
+| Container | Docker image (Python 3.12, index baked in), smoke-tested in CI |
 
 ---
 
@@ -156,31 +156,32 @@ Docker smoke test that builds the image and waits for the app's health check.
 
 ### 7. Deploy (CD)
 
-Every push to `main` that passes all of the checks above is deployed to a
-[Hugging Face Space](https://huggingface.co/docs/hub/spaces-sdks-docker) by the
-`deploy` job: it pushes a snapshot of the repo, and the Space builds the
-`Dockerfile` and serves the Streamlit app on port 7860.
+Every push to `main` that passes all of the checks above is published by the
+`deploy` job to the **`deploy` branch**: a single snapshot commit of the code
+plus the FAISS index built and tested in the same run. Streamlit Community
+Cloud watches that branch and redeploys on every update, so nothing reaches
+the live app without passing CI.
 
-One-time setup:
+One-time setup (free, no tokens needed):
 
-1. Create a Space on Hugging Face with the **Docker** SDK (blank template).
-2. Create a Hugging Face access token with **write** permission.
-3. In this GitHub repo, under *Settings → Secrets and variables → Actions*:
-   - secret `HF_TOKEN` = the token
-   - variable `HF_SPACE` = `<your-hf-username>/<space-name>`
-4. In the Space's *Settings → Variables and secrets*, add the LLM key the app
-   needs, e.g. `OPENAI_API_KEY` (or `LLM_PROVIDER=groq` + `GROQ_API_KEY`). Leave
-   `EMBEDDING_PROVIDER` unset — the image's index is built with local embeddings.
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
+2. **Create app** → repository `Ameya-J16/adaptive-coach`, branch **`deploy`**,
+   main file `app.py`.
+3. **Advanced settings** → Python 3.12, and paste the secrets the app needs
+   (TOML), e.g. `OPENAI_API_KEY = "..."`, or `LLM_PROVIDER = "groq"` plus
+   `GROQ_API_KEY = "..."`. Leave `EMBEDDING_PROVIDER` unset: the shipped index
+   is built with local embeddings.
+4. Deploy. The `deploy` branch appears after the first green push to `main`.
 
-The `deploy` job is skipped until `HF_SPACE` is set. Run the same image locally:
+On first start the app seeds the demo personas, since the hosted `data/`
+folder starts empty and resets whenever the app restarts.
+
+The same app also runs as a container:
 
 ```bash
 docker build -t adaptive-coach .
 docker run -p 7860:7860 --env-file .env adaptive-coach   # http://localhost:7860
 ```
-
-The deployed app is a demo: storage is local files, so data resets whenever the
-Space restarts (the demo personas are re-seeded on start).
 
 ---
 
