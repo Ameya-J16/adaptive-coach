@@ -357,7 +357,9 @@ either defending it or quietly deleting it.
 > no mocks, just hand-built plans and histories. A 14-case golden set that measures the
 > critic's verdict accuracy and false-pass rate. And GitHub Actions running all of it on
 > every push: ruff lint, the suite on Python 3.11–3.13 with coverage, the offline eval as
-> a build gate, and a job that builds the FAISS index and runs the retrieval tests.
+> a build gate, a job that builds the FAISS index and runs the retrieval tests, and a
+> Docker smoke test. When all of that is green on `main`, the pipeline deploys the
+> Docker image to Hugging Face Spaces — so broken code can't reach the live app.
 
 **"What was the hardest bug?"**
 > Three ACWR defects that all under-reported fatigue — the dangerous direction, since an
@@ -376,7 +378,7 @@ either defending it or quietly deleting it.
 | Papers | 44, all CC BY, 896 chunks |
 | Tests | 71 (66 offline + 5 retrieval), ~1 s |
 | Coverage | 56% overall; rule engine 97%, metrics 91% |
-| CI jobs | 5 per push (lint, tests x3 Python versions, RAG) |
+| CI/CD jobs | 6 per push (lint, tests x3 Python versions, RAG, Docker) + deploy on `main` |
 | Golden set | 14 cases |
 | Verdict accuracy | 100% |
 | False-pass rate | 0% |
@@ -426,7 +428,7 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
 
 ---
 
-## 14. Testing and CI
+## 14. Testing and CI/CD
 
 **Three layers, cheapest first:**
 
@@ -436,7 +438,7 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
 | Golden set | 14 hand-labelled plans (6 good, 8 flawed) — offline mode checks the rule layer, live mode runs the real critic | offline free / live ~API calls |
 | CI | GitHub Actions on every push and PR (`.github/workflows/ci.yml`) | free on public repos |
 
-**The CI pipeline (5 jobs, run in parallel):**
+**The pipeline (`.github/workflows/ci.yml`) — checks run in parallel, deploy waits for all of them:**
 
 1. **Lint** — `ruff` for syntax errors, undefined names, unused imports (it found 8)
 2. **Tests x 3** — pytest + coverage on Python 3.11, 3.12, 3.13; then the offline
@@ -445,16 +447,28 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
 3. **RAG** — downloads the embedding model, builds the FAISS index from the 44 papers,
    runs the 5 retrieval tests. Model and index are cached, so the index only rebuilds
    when the papers or the ingest code change.
+4. **Docker** — builds the image and starts it, failing unless the app answers its
+   health check
+5. **Deploy** (pushes to `main` only, after 1–4 pass) — pushes a snapshot to a
+   Hugging Face Space, which builds the `Dockerfile` and serves the app
 
-**Tools:** pytest, pytest-cov, ruff, GitHub Actions (`actions/cache`,
-`actions/upload-artifact`). No mocking library — tests build plain dicts.
+**The container** (`Dockerfile`, `scripts/start_space.sh`): Python 3.12, runs as a
+non-root user, bakes the embedding model and FAISS index into the image at build time
+(so startup is seconds, not minutes), and re-seeds the demo personas on every start —
+free hosting wipes local files, and the personas' history is dated relative to today.
+API keys live in the Space's secrets, never in the repo.
+
+**Tools:** pytest, pytest-cov, ruff, Docker, GitHub Actions (`actions/cache`,
+`actions/upload-artifact`, environments), Hugging Face Spaces. No mocking library — tests build plain dicts.
 
 **Be honest about:**
 - Coverage is 56%. Deterministic code is well covered; the LLM-calling agents aren't,
   because testing them properly needs mocked model responses.
-- It's CI, not CD — nothing deploys automatically.
+- The live app is a demo: data resets on every restart, because storage is local
+  JSON files. Real users would need a database.
 - CI never calls the LLM. The live eval is a manual step so the pipeline costs nothing.
 
-**Say:** "Every push is linted, tested on three Python versions, and gated on the golden
-set — if a change to the safety rules stops them flagging one of the known-bad plans, the
-build fails. The LLM half of the critic is checked by the live eval, run by hand."
+**Say:** "Every push is linted, tested on three Python versions, smoke-tested as a Docker
+image, and gated on the golden set — if a change to the safety rules stops them flagging
+one of the known-bad plans, the build fails and nothing deploys. Green builds on main
+ship to Hugging Face automatically. The LLM half of the critic is checked by the live eval, run by hand."

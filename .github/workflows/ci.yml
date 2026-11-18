@@ -98,3 +98,82 @@ jobs:
 
       - name: Retrieval tests
         run: python -m pytest -q tests/test_rag_retriever.py
+
+  docker:
+    name: Docker image smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Index build is skipped here (the rag job already covers it); this job
+      # checks that the image builds and the app actually starts and serves.
+      - name: Build image
+        run: docker build --build-arg BUILD_INDEX=false -t adaptive-coach:ci .
+      - name: Start container and wait for the health check
+        run: |
+          docker run -d --name app -p 7860:7860 adaptive-coach:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:7860/_stcore/health; then echo; exit 0; fi
+            sleep 2
+          done
+          echo "App did not become healthy"; docker logs app; exit 1
+      - name: Container logs
+        if: always()
+        run: docker logs app || true
+
+  # CD: every green push to main is deployed to Hugging Face Spaces, which
+  # builds the Dockerfile and serves the app. Skipped until the repository
+  # variable HF_SPACE (e.g. "your-hf-username/adaptive-coach") is set; needs
+  # the secret HF_TOKEN (a Hugging Face token with write access).
+  deploy:
+    name: Deploy to Hugging Face Spaces
+    needs: [lint, test, rag, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.HF_SPACE != ''
+    runs-on: ubuntu-latest
+    # Never cancel a deploy halfway; queue the next one behind it instead.
+    concurrency:
+      group: deploy-hf-space
+      cancel-in-progress: false
+    environment:
+      name: huggingface-space
+      url: https://huggingface.co/spaces/${{ vars.HF_SPACE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # A Space is its own git repo. Push a single snapshot commit of the
+      # tracked files rather than the full history, plus the YAML header
+      # Spaces reads from README.md (Docker SDK, port 7860).
+      - name: Assemble Space snapshot
+        run: |
+          SPACE_DIR="$RUNNER_TEMP/space"
+          mkdir -p "$SPACE_DIR"
+          git archive HEAD | tar -x -C "$SPACE_DIR"
+          cd "$SPACE_DIR"
+          rm -rf .github
+          {
+            printf '%s\n' '---' \
+              'title: AdaptiveCoach' \
+              'emoji: 🏋️' \
+              'colorFrom: red' \
+              'colorTo: gray' \
+              'sdk: docker' \
+              'app_port: 7860' \
+              'pinned: false' \
+              'short_description: Multi-agent adaptive training plans grounded in research' \
+              '---' ''
+            cat README.md
+          } > README.space.md
+          mv README.space.md README.md
+
+      - name: Push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then echo "::error::HF_TOKEN secret is not set"; exit 1; fi
+          cd "$RUNNER_TEMP/space"
+          git init -q -b main
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Deploy ${GITHUB_SHA::7} from GitHub Actions"
+          git push --force "https://ci:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" main

@@ -84,7 +84,8 @@
 | Schemas | Pydantic v2 |
 | UI | Streamlit (4 tabs, Hevy-style per-set logging) |
 | Tests | pytest, pytest-cov, golden-set eval harness |
-| CI | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests) |
+| CI/CD | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests, Docker smoke test) → auto-deploy to Hugging Face Spaces |
+| Container | Docker (Python 3.12, index baked in at build time) |
 
 ---
 
@@ -150,7 +151,36 @@ python -m evals.run_eval                       # full live critic eval (calls th
 GitHub Actions runs the same checks on every push and pull request
 (`.github/workflows/ci.yml`): a ruff lint job, the test suite with coverage
 on Python 3.11, 3.12 and 3.13, the offline golden-set eval, and a job that
-builds the FAISS index from the paper corpus and runs the retrieval tests.
+builds the FAISS index from the paper corpus and runs the retrieval tests, and a
+Docker smoke test that builds the image and waits for the app's health check.
+
+### 7. Deploy (CD)
+
+Every push to `main` that passes all of the checks above is deployed to a
+[Hugging Face Space](https://huggingface.co/docs/hub/spaces-sdks-docker) by the
+`deploy` job: it pushes a snapshot of the repo, and the Space builds the
+`Dockerfile` and serves the Streamlit app on port 7860.
+
+One-time setup:
+
+1. Create a Space on Hugging Face with the **Docker** SDK (blank template).
+2. Create a Hugging Face access token with **write** permission.
+3. In this GitHub repo, under *Settings → Secrets and variables → Actions*:
+   - secret `HF_TOKEN` = the token
+   - variable `HF_SPACE` = `<your-hf-username>/<space-name>`
+4. In the Space's *Settings → Variables and secrets*, add the LLM key the app
+   needs, e.g. `OPENAI_API_KEY` (or `LLM_PROVIDER=groq` + `GROQ_API_KEY`). Leave
+   `EMBEDDING_PROVIDER` unset — the image's index is built with local embeddings.
+
+The `deploy` job is skipped until `HF_SPACE` is set. Run the same image locally:
+
+```bash
+docker build -t adaptive-coach .
+docker run -p 7860:7860 --env-file .env adaptive-coach   # http://localhost:7860
+```
+
+The deployed app is a demo: storage is local files, so data resets whenever the
+Space restarts (the demo personas are re-seeded on start).
 
 ---
 
