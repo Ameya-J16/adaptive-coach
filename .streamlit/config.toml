@@ -1,0 +1,24 @@
+# Site theme. Colours here are the single source; ui/styles.py mirrors them
+# as CSS variables for the custom HTML components.
+[theme]
+base = "dark"
+primaryColor = "#C8F135"
+backgroundColor = "#0A0D12"
+secondaryBackgroundColor = "#141A22"
+textColor = "#E7ECF2"
+linkColor = "#C8F135"
+borderColor = "#232B36"
+showWidgetBorder = true
+baseRadius = "12px"
+buttonRadius = "10px"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Space Grotesk:https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap"
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+chartCategoricalColors = ["#C8F135", "#7CC4FF", "#FF8A5B", "#B79CFF", "#3DDC97"]
+dataframeHeaderBackgroundColor = "#161C25"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

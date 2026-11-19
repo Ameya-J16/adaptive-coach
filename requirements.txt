@@ -9,7 +9,7 @@ faiss-cpu>=1.8.0
 openai>=1.0.0
 # local ONNX embeddings (no PyTorch) — the default embedding backend
 fastembed>=0.4.0
-streamlit>=1.40.0
+streamlit>=1.50.0  # top navigation + theme options used by the site
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
