@@ -353,7 +353,7 @@ either defending it or quietly deleting it.
 > users would corrupt each other.
 
 **"How is it tested?"**
-> Three layers. 71 pytest unit tests that run offline in about a second — no API keys,
+> Three layers. 83 pytest unit tests that run offline in about a second — no API keys,
 > no mocks, just hand-built plans and histories. A 14-case golden set that measures the
 > critic's verdict accuracy and false-pass rate. And GitHub Actions running all of it on
 > every push: ruff lint, the suite on Python 3.11–3.13 with coverage, the offline eval as
@@ -377,7 +377,7 @@ either defending it or quietly deleting it.
 | Agents | 6 specialists + 1 supervisor |
 | Tools | 12 (6 read, 6 write) |
 | Papers | 44, all CC BY, 896 chunks |
-| Tests | 71 (66 offline + 5 retrieval), ~1 s |
+| Tests | 83 (78 offline + 5 retrieval), ~1 s |
 | Coverage | 56% overall; rule engine 97%, metrics 91% |
 | CI/CD jobs | 6 per push (lint, tests x3 Python versions, RAG, Docker) + deploy on `main` |
 | Golden set | 14 cases |
@@ -420,7 +420,7 @@ python -m evals.run_eval --offline    # free
 python -m evals.run_eval              # live
 pip install -r requirements-dev.txt   # adds pytest-cov + ruff
 ruff check .                          # lint
-python -m pytest -q --cov=graph --cov=evals   # 71 tests + coverage
+python -m pytest -q --cov=graph --cov=evals   # 83 tests + coverage
 streamlit run app.py
 ```
 
@@ -435,7 +435,7 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
 
 | Layer | What | Cost |
 |---|---|---|
-| Unit tests | 71 pytest tests: ACWR maths, RIR metrics, rule engine, critic loop, adaptation tools + safety gate, nutrition, retrieval | free, ~1 s, offline |
+| Unit tests | 83 pytest tests: ACWR maths, RIR metrics, rule engine, critic loop, adaptation tools + safety gate, nutrition, model config, retrieval | free, ~1 s, offline |
 | Golden set | 14 hand-labelled plans (6 good, 8 flawed) — offline mode checks the rule layer, live mode runs the real critic | offline free / live ~API calls |
 | CI | GitHub Actions on every push and PR (`.github/workflows/ci.yml`) | free on public repos |
 

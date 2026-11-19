@@ -143,7 +143,7 @@ python main.py --user-id ameya --action history  # view history
 ```bash
 pip install -r requirements-dev.txt
 ruff check .                                   # lint
-python -m pytest -q --cov=graph --cov=evals    # 71 tests + coverage (offline, no API keys)
+python -m pytest -q --cov=graph --cov=evals    # 83 tests + coverage (offline, no API keys)
 python -m evals.run_eval --offline             # critic golden set, deterministic layer
 python -m evals.run_eval                       # full live critic eval (calls the LLM)
 ```
@@ -171,6 +171,9 @@ One-time setup (free, no tokens needed):
    (TOML), e.g. `OPENAI_API_KEY = "..."`, or `LLM_PROVIDER = "groq"` plus
    `GROQ_API_KEY = "..."`. Leave `EMBEDDING_PROVIDER` unset: the shipped index
    is built with local embeddings.
+   To use a different OpenAI model, add `LLM_MODEL = "gpt-5.4"` (reasoning
+   models are supported; optional `LLM_REASONING_EFFORT = "low"`), or set one
+   agent's model with e.g. `LLM_MODEL_CRITIC = "..."`.
 4. Deploy. The `deploy` branch appears after the first green push to `main`.
 
 On first start the app seeds the demo personas, since the hosted `data/`
