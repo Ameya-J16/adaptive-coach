@@ -87,6 +87,18 @@ def model_for(node: str | None = None) -> str:
     return os.getenv("LLM_MODEL") or PROVIDERS[active_provider()]["default_model"]
 
 
+# OpenAI reasoning models (the GPT-5 family and the o-series) reject a
+# non-default temperature, so it is left out for them. LLM_REASONING_EFFORT
+# (minimal | low | medium | high) tunes how long they think; unset keeps the
+# provider default.
+REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def is_reasoning_model(model: str) -> bool:
+    name = model.lower().rsplit("/", 1)[-1]  # tolerate "openai/gpt-5..." ids
+    return name.startswith(REASONING_MODEL_PREFIXES)
+
+
 def get_llm(
     node: str | None = None,
     temperature: float = 0.2,
@@ -107,13 +119,19 @@ def get_llm(
     else:
         api_key = "not-needed"  # local Ollama ignores it
 
+    model = model_for(node)
     kwargs = {
-        "model": model_for(node),
-        "temperature": temperature,
+        "model": model,
         "timeout": timeout,
         "max_retries": max_retries,
         "api_key": api_key,
     }
+    if provider == "openai" and is_reasoning_model(model):
+        effort = os.getenv("LLM_REASONING_EFFORT", "").strip().lower()
+        if effort:
+            kwargs["reasoning_effort"] = effort
+    else:
+        kwargs["temperature"] = temperature
     if spec["base_url"]:
         kwargs["base_url"] = spec["base_url"]
     return ChatOpenAI(**kwargs)
