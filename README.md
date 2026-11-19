@@ -124,11 +124,18 @@ python -m rag.ingest
 # Chunks sports_science.md → embeds → saves to rag/faiss_index/
 ```
 
-### 4. Run the Streamlit app
+### 4. Run the website
 
 ```bash
 streamlit run app.py
 ```
+
+Opens at http://localhost:8501 with five pages: **Home**, **Coach** (generate a
+week, or tell the coach about a niggle or schedule change and let the supervisor
+route it to the adaptation agent or the explainer), **Log workout**, **History**
+and **Profile**. Seven demo athletes are seeded automatically on first start.
+The site's theme lives in `.streamlit/config.toml` and `ui/styles.py`; pages are
+in `ui/views/`.
 
 ### 5. CLI usage
 
@@ -235,6 +242,21 @@ Every LLM call and node execution is instrumented with Langfuse:
 - `LangchainCallbackHandler` captures prompt, completion, latency, and token usage per node
 - `trace_node(name)` context manager creates named spans mapping to each pipeline stage
 - Critic scores across loop iterations are visible — enabling analysis of how often plans fail quality checks
+- `trace_run(...)` wraps each request from the website in one root trace, so a whole
+  run (every agent, tool call and LLM generation) shows up as a single tree, tagged
+  with the athlete ID. The Coach page links straight to it ("Trace" tab).
+
+**Seeing the traces:** create a free project at [cloud.langfuse.com](https://cloud.langfuse.com),
+copy its public and secret keys (*Settings → API Keys*), and add them to `.env`
+locally or to the Streamlit app's **Secrets** when deployed:
+
+```toml
+LANGFUSE_PUBLIC_KEY = "pk-lf-..."
+LANGFUSE_SECRET_KEY = "sk-lf-..."
+LANGFUSE_HOST = "https://cloud.langfuse.com"   # or https://us.cloud.langfuse.com for a US project
+```
+
+Then open the project's **Tracing** page; each plan or coach request is one trace.
 
 Without tracing, a bad plan output is undebuggable. With Langfuse, every failure is traceable to a specific prompt, node, and model response.
 

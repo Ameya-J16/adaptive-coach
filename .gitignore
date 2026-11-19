@@ -47,3 +47,6 @@ generate_interview_pdf.py
 # IDE
 .vscode/
 .idea/
+
+# Streamlit secrets (API keys) — never commit
+.streamlit/secrets.toml
