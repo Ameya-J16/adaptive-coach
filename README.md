@@ -2,13 +2,18 @@
 
 > A LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan — with full Langfuse observability.
 
+[![Live demo](https://img.shields.io/badge/Live%20demo-Open%20app-C8F135?style=flat&logo=streamlit&logoColor=black)](https://adaptive-coach-wmemrgmrvmrazabzrgsheu.streamlit.app/)
 [![CI](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat&logo=openai&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.4-412991?style=flat&logo=openai&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat&logo=streamlit&logoColor=white)
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-000000?style=flat)
+
+**▶ Live demo: [adaptive-coach-wmemrgmrvmrazabzrgsheu.streamlit.app](https://adaptive-coach-wmemrgmrvmrazabzrgsheu.streamlit.app/)** — pick a demo athlete,
+generate a week, then tell the coach "my knee hurts when I squat". Deployed automatically
+from `main` by the CI/CD pipeline.
 
 ---
 
@@ -74,7 +79,7 @@
 | Layer | Technology |
 |---|---|
 | Orchestration | LangGraph `StateGraph` with typed `AgentState` |
-| LLM | OpenAI GPT-4o (temperature tuned per node) |
+| LLM | OpenAI GPT-5.4 in production (any OpenAI-compatible provider via `LLM_PROVIDER` / `LLM_MODEL`) |
 | Embeddings | `text-embedding-3-small` → FAISS |
 | RAG | `RecursiveCharacterTextSplitter` → MMR retrieval |
 | Prompts | `ChatPromptTemplate` per node (no f-strings) |
