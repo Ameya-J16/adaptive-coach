@@ -353,8 +353,11 @@ def render() -> None:
     _athlete_header(key, athletes.data_id(key))
     key = athletes.current_athlete()  # the picker may have changed it
     user_id = athletes.data_id(key)  # this visitor's copy in demo mode
-    _actions(user_id)
 
+    # Run any queued request BEFORE drawing the buttons. Drawn first, they kept
+    # the state from before the run: after a first plan, "Send to coach" stayed
+    # disabled, and typing doesn't rerun a Streamlit page, so only clicking an
+    # example (which does) re-enabled it.
     runs = st.session_state.setdefault("runs", {})
     pending = st.session_state.pop("pending", None)
     if pending:  # queued (and counted) by a button callback
@@ -362,6 +365,8 @@ def render() -> None:
         result = _run(uid, request)
         if result is not None:
             runs[uid] = result
+
+    _actions(user_id)
 
     run = runs.get(user_id)
     html('<hr class="ac-divider" style="margin:1.4rem 0 1.2rem">')
