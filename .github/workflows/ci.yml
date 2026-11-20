@@ -54,6 +54,9 @@ jobs:
       - name: Critic golden-set eval (offline)
         run: python -m evals.run_eval --offline
 
+      - name: Routing golden-set check (offline)
+        run: python -m evals.run_routing_eval --offline
+
       - name: Upload test and coverage reports
         if: always()
         uses: actions/upload-artifact@v4
