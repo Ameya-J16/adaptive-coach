@@ -6,6 +6,7 @@ enforced here in Python as hard caps the LLM judge cannot override. The LLM
 still judges the qualitative dimensions (groundedness, goal alignment) and
 can score BELOW a cap — never above it.
 """
+import re
 from datetime import datetime, timedelta
 
 DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
@@ -14,6 +15,17 @@ HARD_RPE = 7.0          # an exercise above this makes a day "hard"
 DELOAD_MAX_RPE = 9.0    # no deload exercise may target above this
 DELOAD_MAX_VOLUME_RATIO = 0.85   # deload plan volume must be <= 85% of baseline
 MAINTAIN_TOLERANCE = 0.15        # maintain must stay within +-15% of baseline
+
+
+# Words that name the default way a lift is done, not a different lift:
+# "Barbell Back Squat" is the squat; "Goblet Squat" or "Front Squat" is a variation.
+_GENERIC_LIFT_WORDS = {"barbell", "bb", "back", "conventional", "standard", "flat"}
+
+
+def lift_key(name: str) -> str:
+    """Normalise an exercise name so the same lift compares equal."""
+    words = re.sub(r"[^a-z0-9 ]+", " ", (name or "").lower()).split()
+    return " ".join(w for w in words if w not in _GENERIC_LIFT_WORDS)
 
 
 def _plan_exercise_volume(ex: dict) -> float:
@@ -137,12 +149,15 @@ def check_plan(
             )
 
     # -- Coherence: swapped-out exercises must not reappear --
-    swaps = [s.lower() for s in progression_decision.get("exercises_to_swap", [])]
+    # Same lift, not substring: swapping out "Squat" must still allow "Goblet
+    # Squat" or "Front Squat" as its replacement. A substring match flagged
+    # every sensible substitute, so the writer could never pass and each
+    # deload burned all three critic rounds (seen in live traces).
+    swaps = {lift_key(s) for s in progression_decision.get("exercises_to_swap", [])} - {""}
     if swaps:
         for d in DAY_ORDER:
             for ex in days.get(d, {}).get("exercises", []):
-                name = (ex.get("name") or "").lower()
-                if any(s in name or name in s for s in swaps):
+                if lift_key(ex.get("name")) in swaps:
                     coherence_cap = min(coherence_cap, 0.5)
                     violations.append(
                         f"COHERENCE: {ex.get('name')} on {d} was marked for substitution "
