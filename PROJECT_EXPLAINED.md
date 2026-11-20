@@ -44,8 +44,8 @@ for _ in range(max_rounds):
 > rewrites your week mid-flight when you get injured, and an explainer. They share a tool
 > layer over the workout history plus a RAG index of 44 cited sports-science papers.
 > Safety-critical arithmetic stays in deterministic Python the agents can't override —
-> and I validate the critic against a 14-case golden set: zero false passes on every
-> model I've run it on, 90-100% verdict accuracy."
+> and I validate the critic against a 14-case golden set: 90% verdict accuracy with zero
+> false passes — the one error is a false fail, the safe direction."
 
 ---
 
@@ -163,9 +163,9 @@ had never once fired. A judge that always says yes is the same as no judge. The 
 the mechanical rules into Python as caps the AI can't score past.
 
 **Say:** "It's an evaluator-optimizer loop — one agent writes, another critiques, the
-first revises. I validate it against a 14-case golden set: zero false passes on every
-model so far — 100% verdict accuracy on GPT-4o, 90% on GPT-5.4, where the one miss
-was it being stricter than my label, not letting a bad plan through."
+first revises. I validate it against a 14-case golden set: 90% verdict accuracy, zero
+false passes, on both GPT-4o and GPT-5.4. The one miss is a false fail — the critic
+being stricter than my label, never letting a bad plan through."
 
 ---
 
@@ -335,8 +335,8 @@ either defending it or quietly deleting it.
 
 **"How do you know the critic works?"**
 > A 14-case golden set. Zero false passes on every model — that's the number that
-> matters, a bad plan reaching an athlete. Verdict accuracy was 100% on GPT-4o and 90% on
-> GPT-5.4; the miss was a good endurance plan failed at 0.725 for overclaiming its own
+> matters, a bad plan reaching an athlete. Verdict accuracy is 90% on both GPT-4o and
+> GPT-5.4 with the embeddings the app ships; the miss was a good endurance plan failed at 0.725 for overclaiming its own
 > notes. Before I built it the critic scored 1.00 on everything and the revision loop had
 > never fired. I only found that because I measured.
 
@@ -393,7 +393,7 @@ either defending it or quietly deleting it.
 | CI/CD jobs | 6 per push (lint, tests x3 Python versions, RAG, Docker) + deploy on `main` |
 | Golden sets | 14 critic cases + 14 routing cases |
 | Routing accuracy | 100% (14/14) on GPT-5.4 mini |
-| Critic verdict accuracy | 90% (9/10) on GPT-5.4; 100% on GPT-4o earlier |
+| Critic verdict accuracy | 90% (9/10) on GPT-5.4 and on GPT-4o, with the shipped local embeddings (GPT-4o reached 100% only with paid OpenAI embeddings) |
 | False-pass rate | 0% on both |
 | Replan threshold | 0.75 |
 | Model in production | GPT-5.4 mini agents + GPT-5.4 critic, low reasoning effort |
