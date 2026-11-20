@@ -12,7 +12,7 @@ def render() -> None:
     with left:
         page_head("History", "Everything you've logged, and how load and effort are trending.")
     with right:
-        user_id = athletes.athlete_picker("history")
+        user_id = athletes.data_id(athletes.athlete_picker("history"))
 
     from memory.workout_store import get_all_sessions
 

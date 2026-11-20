@@ -106,17 +106,17 @@ def _run(user_id: str, request: str) -> dict | None:
         athletes.snapshot.clear()
 
 
-def _athlete_header(user_id: str) -> None:
+def _athlete_header(key: str, user_id: str) -> None:
     snap = athletes.snapshot(user_id)
-    initials = "".join(w[0] for w in athletes.label(user_id).split()[:2]).upper() or "A"
-    desc = athletes.PERSONAS.get(user_id, ("", "Your own training log."))[1]
+    initials = "".join(w[0] for w in athletes.label(key).split()[:2]).upper() or "A"
+    desc = athletes.PERSONAS.get(key, ("", "Your own training log."))[1]
     left, right = st.columns([2.2, 1], vertical_alignment="center")
     with left:
         html(
             '<div class="ac-athlete">'
             f'<div class="ac-avatar">{escape(initials)}</div><div>'
-            f'<div class="ac-athlete-name">{escape(athletes.label(user_id))}</div>'
-            f'<div class="ac-athlete-meta">{escape(desc)} · <code>{escape(user_id)}</code></div>'
+            f'<div class="ac-athlete-name">{escape(athletes.label(key))}</div>'
+            f'<div class="ac-athlete-meta">{escape(desc)} · <code>{escape(key)}</code></div>'
             "</div></div>"
         )
     with right:
@@ -137,10 +137,27 @@ def _athlete_header(user_id: str) -> None:
     ])
 
 
+def _queue(user_id: str, request: str) -> None:
+    """Button callback: runs before the page redraws, so the run counter and
+    the disabled buttons are already up to date when the run starts."""
+    if athletes.runs_left() == 0:
+        return
+    athletes.count_run()  # an empty request means "plan my week"
+    st.session_state["pending"] = (user_id, request)
+
+
+def _queue_message(user_id: str) -> None:
+    text = (st.session_state.get("coach_request") or "").strip()
+    if text:
+        _queue(user_id, text)
+
+
 def _actions(user_id: str) -> None:
     from memory.plan_store import has_plan
 
     plan_exists = has_plan(user_id)
+    left_runs = athletes.runs_left()
+    out_of_runs = left_runs == 0
     left, right = st.columns([1, 1.35], gap="medium")
     with left:
         with st.container(border=True):
@@ -152,11 +169,11 @@ def _actions(user_id: str) -> None:
                 "Runs the full team: fatigue, evidence, load, nutrition, seven days — and a critic "
                 "that sends weak drafts back. Takes a minute or two.</p>"
             )
-            if st.button(
+            st.button(
                 "Generate a new week" if plan_exists else "Generate my first week",
-                type="primary", use_container_width=True, key="gen_plan",
-            ):
-                st.session_state["pending"] = (user_id, "")
+                type="primary", use_container_width=True, key="gen_plan", disabled=out_of_runs,
+                on_click=_queue, args=(user_id, ""),
+            )
     with right:
         with st.container(border=True):
             html(
@@ -176,16 +193,23 @@ def _actions(user_id: str) -> None:
             st.pills("Examples", EXAMPLES, key="coach_example", on_change=_use_example,
                      label_visibility="collapsed")
             with st.form("coach_form", clear_on_submit=False, border=False):
-                request = st.text_area(
+                st.text_area(
                     "Message", key="coach_request", height=80, label_visibility="collapsed",
                     placeholder="e.g. My left knee hurts when I squat",
                 )
-                sent = st.form_submit_button("Send to coach", use_container_width=True,
-                                             disabled=not plan_exists)
+                st.form_submit_button("Send to coach", use_container_width=True,
+                                      disabled=not plan_exists or out_of_runs,
+                                      on_click=_queue_message, args=(user_id,))
             if not plan_exists:
                 st.caption("Generate a first week, then the coach can adapt or explain it.")
-            if sent and request.strip():
-                st.session_state["pending"] = (user_id, request.strip())
+    if out_of_runs:
+        st.info(
+            f"This public demo allows {athletes.max_runs()} AI "
+            f"run{'s' if athletes.max_runs() != 1 else ''} per visit, and you've used "
+            "them all. Clone the repo from GitHub to run it with your own API key."
+        )
+    elif left_runs is not None:
+        st.caption(f"Public demo: {left_runs} of {athletes.max_runs()} AI runs left this visit.")
 
 
 def _reply(run: dict) -> None:
@@ -318,14 +342,15 @@ def _plan_section(user_id: str, run: dict | None) -> None:
 
 def render() -> None:
     page_head("Coach", "Your training, read by a team of agents — plan the week or just talk to it.")
-    user_id = athletes.current_athlete()
-    _athlete_header(user_id)
-    user_id = athletes.current_athlete()  # the picker may have changed it
+    key = athletes.current_athlete()
+    _athlete_header(key, athletes.data_id(key))
+    key = athletes.current_athlete()  # the picker may have changed it
+    user_id = athletes.data_id(key)  # this visitor's copy in demo mode
     _actions(user_id)
 
     runs = st.session_state.setdefault("runs", {})
     pending = st.session_state.pop("pending", None)
-    if pending:
+    if pending:  # queued (and counted) by a button callback
         uid, request = pending
         result = _run(uid, request)
         if result is not None:

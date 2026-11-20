@@ -17,6 +17,35 @@ from tracing.langfuse_config import get_callbacks
 
 _json_parser = JsonOutputParser()
 
+_JSON_REMINDER = (
+    "Your answer must be a single JSON object with the exact keys specified in "
+    "the system prompt. Return it now, with no other text."
+)
+
+
+def _parse_object(content) -> dict | None:
+    """The reply as a JSON object, or None if it is malformed or not an object."""
+    try:
+        parsed = _json_parser.parse(content if isinstance(content, str) else str(content))
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _final_answer(llm, messages: list, content, config: dict) -> dict:
+    """Parse a final reply; on a bad one, ask once more, then give up with {}.
+
+    Smaller models occasionally wrap JSON in prose or truncate it. One retry
+    recovers most of those; failing soft with {} lets each node fall back to
+    its own default instead of crashing the whole run.
+    """
+    parsed = _parse_object(content)
+    if parsed is not None:
+        return parsed
+    messages.append(HumanMessage(content=_JSON_REMINDER))
+    retry = llm.invoke(messages, config=config)
+    return _parse_object(retry.content) or {}
+
 
 def run_tool_agent(
     llm,
@@ -38,18 +67,7 @@ def run_tool_agent(
         messages.append(response)
 
         if not response.tool_calls:
-            parsed = _json_parser.parse(response.content)
-            if isinstance(parsed, dict):
-                return parsed
-            # The model answered with something other than a JSON object
-            # (e.g. a bare number) — demand the object once, then give up.
-            messages.append(HumanMessage(
-                content="Your answer must be a single JSON object with the exact "
-                "keys specified in the system prompt. Return it now."
-            ))
-            retry = llm.invoke(messages, config=config)
-            parsed = _json_parser.parse(retry.content)
-            return parsed if isinstance(parsed, dict) else {}
+            return _final_answer(llm, messages, response.content, config)
 
         for call in response.tool_calls:
             print(f"  [{agent_name}] tool call: {call['name']}({call['args']})")
@@ -72,4 +90,4 @@ def run_tool_agent(
         )
     )
     response = llm.invoke(messages, config=config)
-    return _json_parser.parse(response.content)
+    return _final_answer(llm, messages, response.content, config)

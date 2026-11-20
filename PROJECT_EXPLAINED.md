@@ -348,12 +348,13 @@ either defending it or quietly deleting it.
 > that after v1 rejected a correct injury swap for a problem the plan already had.
 
 **"What would you do next?"**
-> Add mocked-LLM tests for the agent loop (it's the least-covered code, 15%), then extend the eval to cover routing and adaptation safety — the planning half is measured,
-> the agentic half isn't yet. Then storage: it's flat JSON with no locking, so concurrent
-> users would corrupt each other.
+> Run the routing golden set live on every model change and add adaptation-safety cases
+> to it — the planning half has measured accuracy, routing has a labelled set but only
+> spot-checked results. Then storage: it's flat JSON with no locking, so real concurrent
+> users would need a database (the public demo sidesteps this with per-visitor copies).
 
 **"How is it tested?"**
-> Three layers. 83 pytest unit tests that run offline in about a second — no API keys,
+> Three layers. 107 pytest tests that run offline in about a second — no API keys,
 > no mocks, just hand-built plans and histories. A 14-case golden set that measures the
 > critic's verdict accuracy and false-pass rate. And GitHub Actions running all of it on
 > every push: ruff lint, the suite on Python 3.11–3.13 with coverage, the offline eval as
@@ -377,14 +378,15 @@ either defending it or quietly deleting it.
 | Agents | 6 specialists + 1 supervisor |
 | Tools | 12 (6 read, 6 write) |
 | Papers | 44, all CC BY, 896 chunks |
-| Tests | 83 (78 offline + 5 retrieval), ~1 s |
-| Coverage | 56% overall; rule engine 97%, metrics 91% |
+| Tests | 107 (102 offline + 5 retrieval), ~1 s |
+| Coverage | 73% overall; agent loop 100%, every agent node 83-100% |
 | CI/CD jobs | 6 per push (lint, tests x3 Python versions, RAG, Docker) + deploy on `main` |
-| Golden set | 14 cases |
-| Verdict accuracy | 100% |
+| Golden sets | 14 critic cases + 14 routing cases |
+| Critic verdict accuracy | 100% (measured on GPT-4o) |
 | False-pass rate | 0% |
 | Replan threshold | 0.75 |
-| Cost per plan | ~$0.10 on GPT-4o |
+| Model in production | GPT-5.4 mini, low reasoning effort |
+| Cost per plan | ~$0.05-0.10 on GPT-5.4 mini (estimate; Langfuse shows exact) |
 
 ---
 
@@ -418,9 +420,10 @@ python -m scripts.seed_demo_data      # demo personas, prints each ACWR
 python -m scripts.list_models         # what your API key can reach + tool-call test
 python -m evals.run_eval --offline    # free
 python -m evals.run_eval              # live
+python -m evals.run_routing_eval      # supervisor routing, live
 pip install -r requirements-dev.txt   # adds pytest-cov + ruff
 ruff check .                          # lint
-python -m pytest -q --cov=graph --cov=evals   # 83 tests + coverage
+python -m pytest -q --cov=graph --cov=evals   # 107 tests + coverage
 streamlit run app.py
 ```
 
@@ -435,8 +438,8 @@ full Ctrl+C restart — a browser refresh silently runs stale code.
 
 | Layer | What | Cost |
 |---|---|---|
-| Unit tests | 83 pytest tests: ACWR maths, RIR metrics, rule engine, critic loop, adaptation tools + safety gate, nutrition, model config, retrieval | free, ~1 s, offline |
-| Golden set | 14 hand-labelled plans (6 good, 8 flawed) — offline mode checks the rule layer, live mode runs the real critic | offline free / live ~API calls |
+| Unit + integration tests | 107 pytest tests: ACWR maths, RIR metrics, rule engine, critic loop, adaptation tools + safety gate, nutrition, model config, retrieval, the agent loop and supervisor with a scripted fake model, and the whole graph end to end | free, ~1 s, offline |
+| Golden sets | 14 hand-labelled plans (6 good, 8 flawed) for the critic; 14 labelled requests for the supervisor's routing. Offline mode checks the sets and the code-decided cases; live mode runs the real model | offline free / live ~API calls |
 | CI | GitHub Actions on every push and PR (`.github/workflows/ci.yml`) | free on public repos |
 
 **The pipeline (`.github/workflows/ci.yml`) — checks run in parallel, deploy waits for all of them:**
@@ -466,11 +469,16 @@ image (`scripts/start_container.sh` is its entrypoint) that CI still builds and
 health-checks, so moving to any container host later is a config change.
 
 **Tools:** pytest, pytest-cov, ruff, Docker, GitHub Actions (`actions/cache`,
-`actions/upload-artifact`), Streamlit Community Cloud. No mocking library — tests build plain dicts.
+`actions/upload-artifact`), Streamlit Community Cloud. No mocking library — tests build plain dicts,
+and a ~20-line scripted fake model stands in for the LLM.
 
 **Be honest about:**
-- Coverage is 56%. Deterministic code is well covered; the LLM-calling agents aren't,
-  because testing them properly needs mocked model responses.
+- Coverage is 73%. The fake-model tests prove the plumbing (tool loop, routing, the whole
+  graph), not answer quality — that's what the golden sets measure, and the critic's 100%
+  was measured on GPT-4o; it should be re-run on the model in production.
+- The end-to-end test exists because of a real outage: a library update removed an
+  argument the session-memory code used, so every request failed at the first node while
+  all unit tests stayed green.
 - The live app is a demo: data resets on every restart, because storage is local
   JSON files. Real users would need a database.
 - CI never calls the LLM. The live eval is a manual step so the pipeline costs nothing.

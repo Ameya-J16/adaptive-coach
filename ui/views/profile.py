@@ -13,7 +13,8 @@ def render() -> None:
     with left:
         page_head("Profile", "Goals, experience and equipment shape every plan the coach writes.")
     with right:
-        user_id = athletes.athlete_picker("profile")
+        key = athletes.athlete_picker("profile")
+        user_id = athletes.data_id(key)
 
     profile_path = Path("data") / "profiles" / f"{user_id}.json"
     profile_path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,7 +27,7 @@ def render() -> None:
     with st.form("profile_form"):
         col1, col2 = st.columns(2)
         with col1:
-            name = st.text_input("Name", value=existing.get("name", user_id))
+            name = st.text_input("Name", value=existing.get("name", athletes.label(key)))
             goals = st.selectbox(
                 "Primary Goal",
                 ["strength", "hypertrophy", "fat loss", "endurance"],

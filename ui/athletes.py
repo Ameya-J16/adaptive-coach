@@ -1,6 +1,19 @@
-"""Who the site is coaching: demo personas, the athlete switcher and a quick,
-deterministic fatigue snapshot (no LLM call) for headers and cards."""
+"""Who the site is coaching: demo personas, the athlete switcher, a quick
+deterministic fatigue snapshot (no LLM call), and the public-demo guards.
+
+DEMO_MODE (set it in the hosted app's secrets) turns on two protections for a
+public deploy:
+- each visitor works on a private copy of the demo athletes, so one person's
+  "my knee hurts" edit never shows up in someone else's plan;
+- each browser session gets MAX_AI_RUNS_PER_SESSION model runs (default 5),
+  so an open "Generate" button can't run up the API bill.
+Locally it stays off and everything behaves as a single-user app.
+"""
+import os
+import secrets
+import shutil
 from datetime import date
+from pathlib import Path
 
 import streamlit as st
 
@@ -80,3 +93,48 @@ def snapshot(user_id: str) -> dict:
         "last_session": last,
         "days_since": days_since,
     }
+
+
+# ── Public-demo guards ──────────────────────────────────────────────────────
+
+def demo_mode() -> bool:
+    return os.getenv("DEMO_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def max_runs() -> int:
+    try:
+        return max(0, int(os.getenv("MAX_AI_RUNS_PER_SESSION", "5")))
+    except ValueError:
+        return 5
+
+
+def runs_left() -> int | None:
+    """Model runs this session may still make; None means unlimited."""
+    if not demo_mode():
+        return None
+    return max(0, max_runs() - st.session_state.get("ai_runs", 0))
+
+
+def count_run() -> None:
+    st.session_state["ai_runs"] = st.session_state.get("ai_runs", 0) + 1
+
+
+def _copy_if_missing(src: Path, dst: Path) -> None:
+    if src.exists() and not dst.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+
+
+def data_id(key: str) -> str:
+    """The storage id behind an athlete. In demo mode a persona maps to this
+    visitor's private copy, created from the seeded persona on first use."""
+    if not demo_mode() or key not in PERSONAS:
+        return key
+    visitor = st.session_state.setdefault("visitor_id", secrets.token_hex(4))
+    private = f"{key}--{visitor}"
+    from memory.workout_store import DATA_DIR as WORKOUTS_DIR
+
+    _copy_if_missing(WORKOUTS_DIR / f"{key}.json", WORKOUTS_DIR / f"{private}.json")
+    profiles = Path("data") / "profiles"  # same location main._load_profile reads
+    _copy_if_missing(profiles / f"{key}.json", profiles / f"{private}.json")
+    return private

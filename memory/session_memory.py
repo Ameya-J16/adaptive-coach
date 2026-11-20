@@ -13,9 +13,11 @@ def _connection_string() -> str:
 
 def get_memory(session_id: str) -> SQLChatMessageHistory:
     """Return a SQLChatMessageHistory instance for the given session."""
+    # `connection=` — langchain-community 0.4 removed the old
+    # `connection_string=` keyword, which crashed every run at the first node.
     return SQLChatMessageHistory(
         session_id=session_id,
-        connection_string=_connection_string(),
+        connection=_connection_string(),
     )
 
 

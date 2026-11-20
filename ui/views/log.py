@@ -12,7 +12,7 @@ def render() -> None:
     with left:
         page_head("Log a workout", "Record every set — weight, reps and RPE feed the fatigue analysis.")
     with right:
-        user_id = athletes.athlete_picker("log")
+        user_id = athletes.data_id(athletes.athlete_picker("log"))
 
     # ── Session-level state init ──
     if "log_exercises" not in st.session_state:
