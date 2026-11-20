@@ -89,8 +89,13 @@ def model_for(node: str | None = None) -> str:
 
 # OpenAI reasoning models (the GPT-5 family and the o-series) reject a
 # non-default temperature, so it is left out for them. LLM_REASONING_EFFORT
-# (minimal | low | medium | high) tunes how long they think; unset keeps the
-# provider default.
+# (none | minimal | low | medium | high) tunes how long they think; unset keeps
+# the provider default.
+#
+# Chat Completions refuses function tools combined with a reasoning effort on
+# newer models ("use /v1/responses or set reasoning_effort to 'none'"), and
+# every agent here calls tools. So a real effort level switches the client to
+# the Responses API, which supports both; "none" stays on Chat Completions.
 REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
 
 
@@ -128,8 +133,11 @@ def get_llm(
     }
     if provider == "openai" and is_reasoning_model(model):
         effort = os.getenv("LLM_REASONING_EFFORT", "").strip().lower()
-        if effort:
-            kwargs["reasoning_effort"] = effort
+        if effort == "none":
+            kwargs["reasoning_effort"] = "none"
+        elif effort:
+            kwargs["use_responses_api"] = True
+            kwargs["reasoning"] = {"effort": effort}
     else:
         kwargs["temperature"] = temperature
     if spec["base_url"]:

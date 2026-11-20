@@ -23,10 +23,27 @@ _JSON_REMINDER = (
 )
 
 
+def _text(content) -> str:
+    """Plain text of a reply. Chat Completions returns a string; the Responses
+    API returns a list of blocks (reasoning, output text), of which only the
+    text blocks are the answer."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and block.get("type") in ("text", "output_text"):
+                parts.append(block.get("text", ""))
+        return "".join(parts)
+    return str(content)
+
+
 def _parse_object(content) -> dict | None:
     """The reply as a JSON object, or None if it is malformed or not an object."""
     try:
-        parsed = _json_parser.parse(content if isinstance(content, str) else str(content))
+        parsed = _json_parser.parse(_text(content))
     except Exception:
         return None
     return parsed if isinstance(parsed, dict) else None
