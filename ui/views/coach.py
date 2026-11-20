@@ -210,6 +210,8 @@ def _actions(user_id: str) -> None:
         )
     elif left_runs is not None:
         st.caption(f"Public demo: {left_runs} of {athletes.max_runs()} AI runs left this visit.")
+    elif athletes.demo_mode():
+        st.caption("Owner mode: unlimited runs, and each run's Langfuse trace is linked below.")
 
 
 def _reply(run: dict) -> None:
