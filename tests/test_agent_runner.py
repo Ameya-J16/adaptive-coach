@@ -103,6 +103,16 @@ def test_json_wrapped_in_a_code_fence_is_accepted():
     assert run_tool_agent(llm, [], "sys", "user") == {"route": "adapt"}
 
 
+def test_responses_api_content_blocks_are_parsed():
+    # The Responses API returns a list of blocks; reasoning blocks are not the answer.
+    reply = AIMessage(content=[
+        {"type": "reasoning", "id": "rs_1", "summary": []},
+        {"type": "text", "text": '{"route": "explain"}'},
+    ])
+    llm = ScriptedLLM([reply])
+    assert run_tool_agent(llm, [], "sys", "user") == {"route": "explain"}
+
+
 def test_malformed_json_gets_one_retry():
     llm = ScriptedLLM([answer("Sure! Here's my answer: route=adapt"), answer('{"route": "adapt"}')])
     assert run_tool_agent(llm, [], "sys", "user") == {"route": "adapt"}

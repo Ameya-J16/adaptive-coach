@@ -39,10 +39,44 @@ def test_reasoning_model_omits_temperature(monkeypatch):
     assert llm.reasoning_effort is None
 
 
-def test_reasoning_effort_is_passed_through(monkeypatch):
-    monkeypatch.setenv("LLM_MODEL", "gpt-5.4")
+def _payload(llm, with_tools=True):
+    from langchain_core.messages import HumanMessage
+    from langchain_core.tools import tool
+
+    @tool
+    def lookup(exercise: str) -> str:
+        """Look up an exercise."""
+        return ""
+
+    tools = llm.bind_tools([lookup]).kwargs["tools"] if with_tools else None
+    kwargs = {"tools": tools} if tools else {}
+    return llm._get_request_payload([HumanMessage("hi")], **kwargs)
+
+
+def test_reasoning_effort_uses_the_responses_api_with_tools(monkeypatch):
+    # Chat Completions rejects tools + reasoning_effort on newer models
+    # (HTTP 400 seen live on gpt-5.4-mini); the Responses API accepts both.
+    monkeypatch.setenv("LLM_MODEL", "gpt-5.4-mini")
     monkeypatch.setenv("LLM_REASONING_EFFORT", "low")
-    assert get_llm("critic").reasoning_effort == "low"
+    payload = _payload(get_llm("critic"))
+    assert "input" in payload, "should target the Responses API"
+    assert payload["reasoning"] == {"effort": "low"}
+    assert "reasoning_effort" not in payload
+    assert payload["tools"]
+
+
+def test_reasoning_effort_none_stays_on_chat_completions(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "gpt-5.4-mini")
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "none")
+    payload = _payload(get_llm("critic"))
+    assert "messages" in payload and payload["reasoning_effort"] == "none"
+
+
+def test_no_effort_sends_no_reasoning_settings(monkeypatch):
+    monkeypatch.setenv("LLM_MODEL", "gpt-5.4-mini")
+    payload = _payload(get_llm("critic"))
+    assert "messages" in payload
+    assert "reasoning" not in payload and "reasoning_effort" not in payload
 
 
 def test_per_node_override_beats_global(monkeypatch):
