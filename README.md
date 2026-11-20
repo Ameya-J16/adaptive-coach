@@ -1,12 +1,12 @@
-# AdaptiveCoach — Multi-Agent Fitness Intelligence System
+# AdaptiveCoach — Multi-Agent Training Coach
 
-> A LangGraph-orchestrated multi-agent system that analyses your training history, reasons about fatigue and progressive overload using RAG-grounded sports science, and autonomously writes an adaptive weekly training plan — with full Langfuse observability.
+> A LangGraph multi-agent system that reads an athlete's logged training, judges fatigue, and plans, adapts or explains their week. A supervisor model decides which path each request takes, specialist agents call tools to gather their own evidence from the training log and a corpus of 44 peer-reviewed papers, and a critic checked by deterministic safety rules sends weak plans back for revision. Every run is traced in Langfuse.
 
 [![Live demo](https://img.shields.io/badge/Live%20demo-Open%20app-C8F135?style=flat&logo=streamlit&logoColor=black)](https://adaptive-coach-wmemrgmrvmrazabzrgsheu.streamlit.app/)
 [![CI](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml/badge.svg)](https://github.com/Ameya-J16/adaptive-coach/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
-![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
-![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=flat)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.4%20mini-412991?style=flat&logo=openai&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat&logo=streamlit&logoColor=white)
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-000000?style=flat)
@@ -20,57 +20,29 @@ from `main` by the CI/CD pipeline.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                       AdaptiveCoach Pipeline                        │
-└─────────────────────────────────────────────────────────────────────┘
+START
+  │
+  ▼
+context_loader ──► fatigue_analyst ──► SUPERVISOR  (the model chooses the path)
+ (code: history,    (ACWR in code;        │
+  session memory)    agent reads           ├── "plan" ──► progression_planner ──► nutrition_advisor ──► plan_writer ◄──┐
+                     effort trends)        │              (searches the papers)    (code: macros)          │           │ replan:
+                                           │                                                               ▼           │ score < 0.75
+                                           │                                                             critic ───────┘ and < 3 rounds
+                                           │                                                   (rule engine caps + LLM judge)
+                                           │                                                               │
+                                           │                                                               ▼
+                                           │                                                       plan saved ──► END
+                                           ├── "adapt" ──► adaptation_agent ──► safety gate ──► END
+                                           │               (edits the saved plan with write tools)
+                                           └── "explain" ──► explainer ──► END
+                                                            (read-only tools; changes nothing)
 
- [User History]        [Session Memory]        [FAISS Index]
-      │                      │                      │
-      └──────────┬───────────┘                      │
-                 ▼                                  │
-        ┌────────────────┐                          │
-        │ context_loader │                          │
-        └───────┬────────┘                          │
-                │                                   │
-                ▼                                   │
-        ┌────────────────┐                          │
-        │fatigue_analyst │                          │
-        │  ACWR · RPE    │                          │
-        └───────┬────────┘                          │
-                │                                   │
-                ▼                                   │
-        ┌───────────────────┐                       │
-        │progression_planner│◄──────────────────────┘
-        │  RAG retrieval    │   MMR search (k=4)
-        └───────┬───────────┘
-                │
-                ▼
-        ┌────────────────┐
-        │nutrition_advisor│
-        │ TDEE · macros  │
-        │ carb periodise │
-        └───────┬────────┘
-                │
-       ┌────────▼────────┐
-       │                 │◄─────────────────────────┐
-       │   plan_writer   │                          │ critic_feedback
-       │  7-day plan     │                          │ (score < 0.75
-       │  generation     │                          │  loop_count < 3)
-       └────────┬────────┘                          │
-                │                                   │
-                ▼                                   │
-        ┌───────────────┐                           │
-        │    critic     │───────────────────────────┘
-        │ Safety        │
-        │ Coherence     │
-        │ Groundedness  │──── score ≥ 0.75 ──► [Final Plan]
-        │ Goal Alignment│     OR loop = 3
-        └───────────────┘
-
-  Every node  ──►  Langfuse (named spans + LangchainCallbackHandler)
-  Every call  ──►  ChatPromptTemplate chain (no bare f-strings)
-  All outputs ──►  Pydantic v2 / JsonOutputParser
+Every request ──► one Langfuse trace (each agent, tool call and model response)
 ```
+
+`fatigue_analyst` runs before the supervisor on purpose: "my knee hurts" should be
+routed knowing whether the athlete is already overreached, not from the words alone.
 
 ---
 
@@ -78,18 +50,17 @@ from `main` by the CI/CD pipeline.
 
 | Layer | Technology |
 |---|---|
-| Orchestration | LangGraph `StateGraph` with typed `AgentState` |
-| LLM | OpenAI GPT-5.4 mini in production (any OpenAI-compatible provider via `LLM_PROVIDER` / `LLM_MODEL`) |
-| Embeddings | `text-embedding-3-small` → FAISS |
-| RAG | `RecursiveCharacterTextSplitter` → MMR retrieval |
-| Prompts | `ChatPromptTemplate` per node (no f-strings) |
-| Memory | `SQLChatMessageHistory` (SQLite) |
-| Workout Storage | JSON flat-file keyed by `user_id` |
-| Observability | Langfuse (spans, token counts, latency) |
-| Schemas | Pydantic v2 |
-| UI | Streamlit (4 tabs, Hevy-style per-set logging) |
-| Tests | pytest, pytest-cov, golden-set eval harness |
-| CI/CD | GitHub Actions (ruff lint, test matrix on Python 3.11–3.13, FAISS build + retrieval tests, Docker smoke test) → auto-deploy to Streamlit Community Cloud |
+| Orchestration | LangGraph `StateGraph`, typed `AgentState`, conditional edges for routing and the critic loop |
+| Agents | Explicit tool-calling loop (`graph/agent_runner.py`) over 12 tools: 6 read, 6 write |
+| LLM | OpenAI GPT-5.4 mini for the agents, GPT-5.4 for the critic; any OpenAI-compatible provider via `LLM_PROVIDER` / `LLM_MODEL` (Groq, Together, OpenRouter, Ollama) |
+| Knowledge base | 44 CC BY papers from Europe PMC, licence-gated at download, plus a short practitioner summary — 896 chunks |
+| Retrieval | `RecursiveCharacterTextSplitter` → FAISS → MMR (`k=4`, `fetch_k=12`); local `bge-base-en-v1.5` embeddings via fastembed (OpenAI optional) |
+| Safety | Deterministic rule engine (`graph/plan_checks.py`) whose caps the LLM judge can't override |
+| Memory | `SQLChatMessageHistory` (SQLite) for sessions; JSON files for workouts and plans |
+| Observability | Langfuse: one trace per request, spans per agent, tokens, cost and latency per model call |
+| UI | Streamlit, five pages with top navigation, custom theme |
+| Tests | pytest (113 tests), pytest-cov, two golden-set eval harnesses |
+| CI/CD | GitHub Actions: ruff, tests on Python 3.11–3.13, golden-set checks, FAISS build + retrieval tests, Docker smoke test → auto-deploy to Streamlit Community Cloud |
 | Container | Docker image (Python 3.12, index baked in), smoke-tested in CI |
 
 ---
@@ -126,7 +97,7 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 ```bash
 python -m rag.ingest
-# Chunks sports_science.md → embeds → saves to rag/faiss_index/
+# 44 papers + practitioner summary → 896 chunks → local embeddings → rag/faiss_index/
 ```
 
 ### 4. Run the website
@@ -155,7 +126,7 @@ python main.py --user-id ameya --action history  # view history
 ```bash
 pip install -r requirements-dev.txt
 ruff check .                                   # lint
-python -m pytest -q --cov=graph --cov=evals    # 107 tests + coverage (offline, no API keys)
+python -m pytest -q --cov=graph --cov=evals    # 113 tests + coverage (offline, no API keys)
 python -m evals.run_eval --offline             # critic golden set, deterministic layer
 python -m evals.run_routing_eval --offline     # routing golden set, offline checks
 python -m evals.run_eval                       # full live critic eval (calls the LLM)
@@ -209,43 +180,71 @@ docker run -p 7860:7860 --env-file .env adaptive-coach   # http://localhost:7860
 
 ---
 
-## Agentic Design Decisions
+## Design Decisions
 
-### Why LangGraph?
+### Agents, not a fixed pipeline
 
-Standard LangChain chains are DAGs — they run once and return. AdaptiveCoach requires a **stateful, looping pipeline** where the Critic node can evaluate plan quality and route execution back to the PlanWriter for revision.
+Each specialist gets a short brief and a menu of tools, and decides itself what to
+look at — the loop in `graph/agent_runner.py` sends the conversation to the model,
+runs whatever tools it asks for, feeds the results back, and stops when it answers.
 
-- **Typed state** (`AgentState` TypedDict) — every node knows exactly what fields are available and what it must produce
-- **Conditional edges** (`should_replan`) — if `critic_score < 0.75` and `loop_count < 3`, the graph re-routes to `plan_writer` with critic feedback injected into the prompt
-- **Node isolation** — each node is a pure function receiving state and returning partial state updates, making individual nodes unit-testable in isolation
+| Agent | Decides | Tools |
+|---|---|---|
+| `fatigue_analyst` | How fatigued the athlete is, from effort trends | training-log read tools |
+| `supervisor` | Plan, adapt or explain (no tools — one judgement) | — |
+| `progression_planner` | Push, hold or deload; writes its own literature searches | read tools + `search_knowledge_base` |
+| `plan_writer` | The seven days, starting from logged lifts | read tools |
+| `critic` | Whether the plan ships; can check claims against the papers | `search_knowledge_base` |
+| `adaptation_agent` | How to change the saved week ("knee hurts", "can't train Thursday") | write tools (`view_day`, `swap_exercise`, `move_session`, `set_day_to_rest`, `adjust_exercise_load`, `add_note_to_day`) + read tools + `search_knowledge_base` |
+| `explainer` | How to answer "why?" — read-only by design | read tools + `search_knowledge_base` |
 
-### The Critic Loop
+Two steps are plain code on purpose: `context_loader` (loads data) and
+`nutrition_advisor` (Mifflin–St Jeor plus macro split — arithmetic doesn't need a model).
 
-Without a critic, LLM-generated plans may be internally inconsistent. The critic enforces 4 quality dimensions:
+### The critic: model judgement, code veto
 
-| Dimension | What it checks |
-|---|---|
-| **Safety** | No consecutive heavy compound sessions; deload rules respected |
-| **Coherence** | Plan matches the progression decision (increase / maintain / deload) |
-| **Groundedness** | Advice references retrieved sports science, not hallucinated |
-| **Goal Alignment** | Rep ranges and intensities match the user's stated goal |
+The critic scores four dimensions — safety, coherence, groundedness, goal alignment —
+but `graph/plan_checks.py` checks the mechanical rules first and caps the scores:
+back-to-back heavy days on the same muscles, overreach under red fatigue, high RPE in a
+deload, a "deload" that doesn't cut volume, an "increase" that doesn't increase, a
+swapped-out lift reappearing. Any violation forces the overall score below the 0.75
+pass mark, so a broken plan can't be averaged through. Below 0.75 the plan goes back
+to `plan_writer` with the feedback, up to three rounds.
 
-The system self-corrects up to 3 times before emitting the final plan.
+The adaptation agent has the same kind of guard: its edits are checked before and
+after, and it is rejected only for violations it *introduced* — an agent is
+accountable for what it changed, not for what it inherited.
 
-### RAG — How Plans Stay Grounded
+### ACWR — computed in code, not by the model
 
-The `progression_planner` builds a targeted query from the fatigue report and user goals (e.g. `"deload protocol ACWR 1.7 overreaching recovery"`), retrieves 4 MMR-reranked chunks from FAISS, and:
+The acute:chronic workload ratio gates whether a deload is prescribed, so
+`fatigue_analyst.py` computes it from the logged volumes (rolling 7- and 28-day
+windows) and overwrites whatever the model returns. Red and amber zones are a floor
+the agent can't lower; in the green zone it may raise the level from effort signals
+(RPE drift at matched loads, sets near failure, per-muscle volume against MEV/MAV).
 
-1. Injects them into the `progression_planner` prompt
-2. Stores them in `AgentState.retrieved_context` for `plan_writer`
-3. Displays sources transparently in the Streamlit UI
-4. Uses them as evidence in the `critic` Groundedness score
+### RAG — evidence the agents look up themselves
 
-### ACWR — Computed in Python, Not by the LLM
+`scripts/build_corpus.py` fetches papers from Europe PMC and keeps only those whose
+licence allows redistribution (CC BY / CC BY-SA / CC0); each chunk carries its
+author, year and DOI. Agents call `search_knowledge_base` with queries they write
+themselves; the planner's results are passed to the writer, shown on the Coach page's
+*Research used* tab, and used by the critic to judge groundedness.
 
-The Acute:Chronic Workload Ratio is a safety-critical metric. Computing it inside the LLM risks hallucination on a number that directly gates whether the system prescribes a deload.
+---
 
-`fatigue_analyst.py` computes ACWR deterministically in Python from the stored workout volumes, then **overwrites** whatever the LLM returns with the real value.
+## Evaluation
+
+Two hand-labelled golden sets (details and every run in
+[`evals/results/`](evals/results/)):
+
+| Set | What it measures | Latest (deployed models) |
+|---|---|---|
+| Critic — 14 plans (6 good, 8 flawed) | Does a bad plan ever pass? Is each flaw caught on the right dimension? | **90% verdict accuracy, 0 false passes**, 100% flaw detection |
+| Routing — 14 requests | Does the supervisor send pain to *adapt*, questions to *explain*? | **14/14** |
+
+The one critic miss is a false fail — a good plan rejected for overclaiming its own
+notes — never a bad plan let through. Both sets also run offline in CI.
 
 ---
 
@@ -274,44 +273,43 @@ Then open the project's **Tracing** page; each plan or coach request is one trac
 
 Without tracing, a bad plan output is undebuggable. With Langfuse, every failure is traceable to a specific prompt, node, and model response.
 
+
 ---
 
 ## Project Structure
 
 ```
-adaptive_coach/
-├── app.py                     # Streamlit UI (4 tabs, Hevy-style logging)
-├── main.py                    # CLI entry point
-├── requirements.txt
-├── .env.example
+adaptive-coach/
+├── app.py                      # Streamlit entry: theme, demo seeding, top navigation
+├── main.py                     # CLI entry point
+├── requirements.txt / requirements-dev.txt
+├── Dockerfile · ruff.toml · .streamlit/config.toml
+├── .github/workflows/ci.yml    # lint, tests, golden sets, RAG build, Docker, deploy
 │
 ├── graph/
-│   ├── state.py               # AgentState TypedDict (13 fields)
-│   ├── graph.py               # StateGraph + conditional critic loop
-│   └── nodes/
-│       ├── context_loader.py
-│       ├── fatigue_analyst.py # Deterministic ACWR + LLM trend analysis
-│       ├── progression_planner.py  # RAG retrieval hub
-│       ├── nutrition_advisor.py    # TDEE + carb periodisation
-│       ├── plan_writer.py
-│       └── critic.py
-│
+│   ├── graph.py                # StateGraph: supervisor routing + critic loop
+│   ├── state.py                # AgentState TypedDict
+│   ├── agent_runner.py         # the tool-calling loop every agent uses
+│   ├── tools.py                # read tools + search_knowledge_base
+│   ├── adaptation_tools.py     # write tools for the adaptation agent
+│   ├── plan_checks.py          # deterministic rule engine (critic caps, safety gate)
+│   ├── training_metrics.py     # RIR, RPE drift, failure exposure, MEV/MAV
+│   └── nodes/                  # context_loader, fatigue_analyst, supervisor,
+│                               # progression_planner, nutrition_advisor, plan_writer,
+│                               # critic, adaptation_agent, explainer
+├── prompts/                    # system + user prompt per agent
 ├── rag/
-│   ├── ingest.py              # Chunk → embed → FAISS
-│   ├── retriever.py           # MMR search wrapper (lazy singleton)
+│   ├── ingest.py               # chunk → embed → FAISS
+│   ├── retriever.py            # MMR search
+│   ├── embeddings.py           # local fastembed or OpenAI
 │   └── knowledge_base/
-│       └── sports_science.md  # 1,800+ word evidence base
-│
-├── prompts/                   # ChatPromptTemplate per node
-├── models/
-│   └── schemas.py             # Pydantic v2 (SetEntry, LoggedExercise, etc.)
-├── memory/
-│   ├── session_memory.py      # SQLChatMessageHistory (SQLite)
-│   └── workout_store.py       # JSON workout log (per-set storage)
-├── tracing/
-│   └── langfuse_config.py     # Langfuse client + graceful degradation
-└── tests/
-    ├── test_fatigue_analyst.py
-    ├── test_critic_loop.py
-    └── test_rag_retriever.py
+│       ├── corpus/             # 44 CC BY papers + manifest.json + LICENSES.md
+│       └── sports_science.md   # short practitioner summary
+├── config/models.py            # provider/model selection, per-agent overrides
+├── memory/                     # session memory (SQLite), workout and plan stores (JSON)
+├── tracing/langfuse_config.py  # trace_run / trace_node, silent no-op without keys
+├── ui/                         # styles, components, demo guards, pages in ui/views/
+├── evals/                      # golden sets, runners, results/
+├── scripts/                    # build_corpus, seed_demo_data, list_models, ...
+└── tests/                      # 113 tests, incl. end-to-end with a scripted model
 ```
