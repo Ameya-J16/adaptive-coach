@@ -39,6 +39,13 @@ from ui import styles  # noqa: E402  (after set_page_config)
 from ui.views import coach, history, home, log, profile  # noqa: E402
 
 styles.inject()
+
+# Check ?owner=<token> on whichever page the visitor lands on. The query
+# string is dropped as soon as they navigate, so checking only on the Coach
+# page missed owners who opened the link on Home.
+from ui import athletes  # noqa: E402
+
+athletes.is_owner()
 _assets = Path(__file__).parent / "ui" / "assets"
 st.logo(str(_assets / "logo.svg"), size="large")
 
