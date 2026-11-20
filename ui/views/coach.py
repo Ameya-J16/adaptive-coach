@@ -329,7 +329,12 @@ def _plan_section(user_id: str, run: dict | None) -> None:
             st.caption("No edits yet. Ask the coach to change something and it is logged here.")
     with tabs[4]:
         url = (run or {}).get("_trace_url")
-        if url:
+        if not athletes.is_owner():
+            st.caption(
+                "Every run is traced in Langfuse — each agent step, tool call, prompt and token "
+                "count. Traces are private to the site owner."
+            )
+        elif url:
             st.link_button("Open this run in Langfuse", url)
             st.caption("Every agent step, tool call, prompt and token count for this run.")
         else:

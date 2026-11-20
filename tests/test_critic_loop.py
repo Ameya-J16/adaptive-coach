@@ -130,6 +130,25 @@ class TestPlanChecks:
         checks = check_plan(plan, GREEN, decision, [])
         assert checks["coherence_cap"] <= 0.5
 
+    def test_variation_of_a_swapped_lift_is_a_valid_substitute(self):
+        # Swapping out "Squat"/"Bench Press" must allow their variations, or the
+        # writer can never satisfy the rule (live bug: every round was capped).
+        plan = _plan(
+            monday=_day([_ex("Goblet Squat", 3, 8, 24, 6.0, ["quads"]),
+                         _ex("Dumbbell Bench Press", 3, 10, 22, 6.0, ["chest"])]),
+            friday=_day([_ex("Rear-Foot Elevated Split Squat", 3, 8, 16, 6.0, ["quads"])]),
+        )
+        decision = {"action": "maintain", "exercises_to_swap": ["Squat", "Bench Press"]}
+        checks = check_plan(plan, GREEN, decision, [])
+        assert not [v for v in checks["violations"] if "substitution" in v]
+
+    def test_same_lift_with_equipment_named_still_counts_as_reappearing(self):
+        plan = _plan(monday=_day([_ex("Barbell Back Squat", 3, 5, 100, 7.0, ["quads"]),
+                                  _ex("bench press", 3, 5, 80, 7.0, ["chest"])]))
+        decision = {"action": "maintain", "exercises_to_swap": ["Squat", "Barbell Bench Press"]}
+        checks = check_plan(plan, GREEN, decision, [])
+        assert len([v for v in checks["violations"] if "substitution" in v]) == 2
+
     def test_no_history_skips_volume_checks(self):
         plan = _plan(monday=_day([_ex("Squat", 3, 8, 40, 6.0, ["quads"])]))
         checks = check_plan(plan, {"fatigue_level": "amber", "acwr": None}, {"action": "maintain"}, [])

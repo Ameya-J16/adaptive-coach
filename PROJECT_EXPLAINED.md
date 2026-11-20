@@ -44,8 +44,8 @@ for _ in range(max_rounds):
 > rewrites your week mid-flight when you get injured, and an explainer. They share a tool
 > layer over the workout history plus a RAG index of 44 cited sports-science papers.
 > Safety-critical arithmetic stays in deterministic Python the agents can't override —
-> and I validated the critic against a 14-case golden set: 100% verdict accuracy, zero
-> false passes."
+> and I validate the critic against a 14-case golden set: zero false passes on every
+> model I've run it on, 90-100% verdict accuracy."
 
 ---
 
@@ -163,8 +163,9 @@ had never once fired. A judge that always says yes is the same as no judge. The 
 the mechanical rules into Python as caps the AI can't score past.
 
 **Say:** "It's an evaluator-optimizer loop — one agent writes, another critiques, the
-first revises. I validated it against a 14-case golden set: 100% verdict accuracy, zero
-false passes."
+first revises. I validate it against a 14-case golden set: zero false passes on every
+model so far — 100% verdict accuracy on GPT-4o, 90% on GPT-5.4, where the one miss
+was it being stricter than my label, not letting a bad plan through."
 
 ---
 
@@ -333,9 +334,18 @@ either defending it or quietly deleting it.
 > slower, costlier, less reliable than Python.
 
 **"How do you know the critic works?"**
-> A 14-case golden set — 100% verdict accuracy, 0% false-pass. Before I built it the
-> critic scored 1.00 on everything and the revision loop had never fired. I only found
-> that because I measured.
+> A 14-case golden set. Zero false passes on every model — that's the number that
+> matters, a bad plan reaching an athlete. Verdict accuracy was 100% on GPT-4o and 90% on
+> GPT-5.4; the miss was a good endurance plan failed at 0.725 for overclaiming its own
+> notes. Before I built it the critic scored 1.00 on everything and the revision loop had
+> never fired. I only found that because I measured.
+
+**"How did you debug it in production?"**
+> Langfuse. One live plan cost $0.17 and ran the critic loop three times. The trace showed
+> why: my rule for "an exercise marked for swapping must not reappear" used substring
+> matching, so swapping out Squat also flagged Goblet Squat — every sensible substitute
+> broke the rule. The writer even reverted to the original lifts to satisfy the feedback.
+> I replayed that run's three drafts against a fixed rule before shipping it.
 
 **"Isn't ACWR contested?"**
 > Yes — mathematical coupling, arbitrary thresholds, replication failures. It's also
@@ -382,11 +392,12 @@ either defending it or quietly deleting it.
 | Coverage | 73% overall; agent loop 100%, every agent node 83-100% |
 | CI/CD jobs | 6 per push (lint, tests x3 Python versions, RAG, Docker) + deploy on `main` |
 | Golden sets | 14 critic cases + 14 routing cases |
-| Critic verdict accuracy | 100% (measured on GPT-4o) |
-| False-pass rate | 0% |
+| Routing accuracy | 100% (14/14) on GPT-5.4 mini |
+| Critic verdict accuracy | 90% (9/10) on GPT-5.4; 100% on GPT-4o earlier |
+| False-pass rate | 0% on both |
 | Replan threshold | 0.75 |
-| Model in production | GPT-5.4 mini, low reasoning effort |
-| Cost per plan | ~$0.05-0.10 on GPT-5.4 mini (estimate; Langfuse shows exact) |
+| Model in production | GPT-5.4 mini agents + GPT-5.4 critic, low reasoning effort |
+| Cost per plan | $0.17 measured (one live run, 3 critic rounds; the critic was ~70%) |
 
 ---
 
@@ -474,8 +485,9 @@ and a ~20-line scripted fake model stands in for the LLM.
 
 **Be honest about:**
 - Coverage is 73%. The fake-model tests prove the plumbing (tool loop, routing, the whole
-  graph), not answer quality — that's what the golden sets measure, and the critic's 100%
-  was measured on GPT-4o; it should be re-run on the model in production.
+  graph), not answer quality — that's what the golden sets measure.
+- The golden sets are small (14 + 14). Good for catching regressions, too small to
+  claim a precise accuracy figure.
 - The end-to-end test exists because of a real outage: a library update removed an
   argument the session-memory code used, so every request failed at the first node while
   all unit tests stayed green.

@@ -150,4 +150,12 @@ def describe() -> str:
     provider = active_provider()
     spec = PROVIDERS[provider]
     weights = "open-weight" if spec["open_weights"] else "proprietary"
-    return f"{provider} · {model_for()} · {weights}"
+    # Per-agent overrides (LLM_MODEL_CRITIC=...) change what actually ran, so
+    # eval reports and the UI must show them, not just the default model.
+    prefix = "LLM_MODEL_"
+    overrides = sorted(
+        f"{k[len(prefix):].lower()}: {v}" for k, v in os.environ.items()
+        if k.startswith(prefix) and v and v != model_for()
+    )
+    extra = f" ({', '.join(overrides)})" if overrides else ""
+    return f"{provider} · {model_for()}{extra} · {weights}"

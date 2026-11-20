@@ -191,6 +191,10 @@ One-time setup (free, no tokens needed):
    For a public deploy also add `DEMO_MODE = "true"`: each visitor then works on
    a private copy of the demo athletes, and gets `MAX_AI_RUNS_PER_SESSION`
    (default 5) model runs per visit so an open demo can't run up the API bill.
+   Add `OWNER_TOKEN = "<any long random string>"` too, then open the site once
+   as `https://<your-app>.streamlit.app/?owner=<token>`: that browser session
+   gets unlimited runs and the links to its Langfuse traces, which visitors
+   never see.
 4. Deploy. The `deploy` branch appears after the first green push to `main`.
 
 On first start the app seeds the demo personas, since the hosted `data/`
