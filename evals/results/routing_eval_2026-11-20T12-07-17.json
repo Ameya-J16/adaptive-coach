@@ -1,0 +1,130 @@
+{
+  "timestamp": "2026-11-20T12:07:17",
+  "llm_backend": "openai \u00b7 gpt-5.4-mini \u00b7 proprietary",
+  "n_cases": 14,
+  "metrics": {
+    "accuracy": 1.0,
+    "change_request_sent_to_plan": 0,
+    "pain_or_disruption_sent_to_explain": 0,
+    "question_that_changed_the_plan": 0
+  },
+  "confusion": {
+    "adapt->adapt": 5,
+    "explain->explain": 5,
+    "plan->plan": 4
+  },
+  "cases": [
+    {
+      "name": "knee_pain",
+      "request": "My left knee hurts when I squat",
+      "expected": "adapt",
+      "got": "adapt",
+      "correct": true,
+      "reason": "I\u2019m sending this to adaptation because you already have a plan and your left knee pain needs the existing week adjusted around it rather than rewritten from scratch."
+    },
+    {
+      "name": "missed_day",
+      "request": "I can't make it to the gym on Thursday",
+      "expected": "adapt",
+      "got": "adapt",
+      "correct": true,
+      "reason": "You already have a plan, and missing Thursday\u2019s gym session is a mid-week disruption, so the adaptation specialist should adjust it in place."
+    },
+    {
+      "name": "broken_rack",
+      "request": "The squat rack at my gym is broken all week",
+      "expected": "adapt",
+      "got": "adapt",
+      "correct": true,
+      "reason": "You already have a plan, and the broken squat rack is a mid-week equipment disruption that should be worked around without rewriting the whole week."
+    },
+    {
+      "name": "poor_sleep",
+      "request": "I only slept four hours, can tomorrow be lighter?",
+      "expected": "adapt",
+      "got": "adapt",
+      "correct": true,
+      "reason": "You already have a plan, and with only four hours of sleep this is a mid-week recovery issue best handled by adapting tomorrow\u2019s session rather than rewriting the week."
+    },
+    {
+      "name": "travel",
+      "request": "I'm travelling Wednesday to Friday and will only have dumbbells",
+      "expected": "adapt",
+      "got": "adapt",
+      "correct": true,
+      "reason": "You already have a plan, and travel with only dumbbells is a mid-week disruption, so we should adapt the current week in place rather than rewrite it."
+    },
+    {
+      "name": "why_deload",
+      "request": "Why is this week a deload?",
+      "expected": "explain",
+      "got": "explain",
+      "correct": true,
+      "reason": "You\u2019re asking why this week is a deload, so I\u2019ll explain the reasoning without changing your plan."
+    },
+    {
+      "name": "what_rpe",
+      "request": "What does RPE 7 actually mean?",
+      "expected": "explain",
+      "got": "explain",
+      "correct": true,
+      "reason": "I\u2019m sending this to the explanation path because you\u2019re asking what RPE 7 means, not asking to change your plan."
+    },
+    {
+      "name": "why_split",
+      "request": "Why did you put bench on both Monday and Thursday?",
+      "expected": "explain",
+      "got": "explain",
+      "correct": true,
+      "reason": "You\u2019re asking why the plan was structured that way, not for a change to it, so I\u2019ll explain the reasoning rather than alter the week."
+    },
+    {
+      "name": "protein_q",
+      "request": "How much protein should I hit on rest days?",
+      "expected": "explain",
+      "got": "explain",
+      "correct": true,
+      "reason": "You\u2019re asking for clarification about protein intake on rest days, so I\u2019ll explain the existing approach without changing your plan."
+    },
+    {
+      "name": "ambiguous",
+      "request": "hmm",
+      "expected": "explain",
+      "got": "explain",
+      "correct": true,
+      "reason": "You\u2019re not asking to change anything, so I\u2019ll keep the existing plan unchanged and just interpret what you mean."
+    },
+    {
+      "name": "fresh_week",
+      "request": "Give me a fresh plan for next week",
+      "expected": "plan",
+      "got": "plan",
+      "correct": true,
+      "reason": "You\u2019re asking for a fresh new week of training, so I\u2019ll send this to the full planning pipeline to build a new 7-day plan."
+    },
+    {
+      "name": "goal_change",
+      "request": "My goal is now a marathon, redo my whole programme",
+      "expected": "plan",
+      "got": "plan",
+      "correct": true,
+      "reason": "Your goal has changed to marathon training, so I\u2019m sending this through the full planning pipeline to build a new programme from scratch."
+    },
+    {
+      "name": "start_over",
+      "request": "Scrap this week and start over completely",
+      "expected": "plan",
+      "got": "plan",
+      "correct": true,
+      "reason": "You want a completely new week rather than a patch to the current one, so I\u2019m routing this to full planning."
+    },
+    {
+      "name": "no_plan_pain",
+      "request": "My knee hurts",
+      "expected": "plan",
+      "got": "plan",
+      "correct": true,
+      "reason": "No plan exists yet, so I'm building your first week."
+    }
+  ]
+}

@@ -8,6 +8,10 @@ public deploy:
 - each browser session gets MAX_AI_RUNS_PER_SESSION model runs (default 5),
   so an open "Generate" button can't run up the API bill.
 Locally it stays off and everything behaves as a single-user app.
+
+OWNER_TOKEN unlocks owner mode on a public deploy: open the site once with
+?owner=<token> and that browser session gets unlimited runs and the links to
+its Langfuse traces, which visitors never see.
 """
 import os
 import secrets
@@ -108,9 +112,23 @@ def max_runs() -> int:
         return 5
 
 
+def is_owner() -> bool:
+    """True locally, or on a public deploy once ?owner=<OWNER_TOKEN> was used."""
+    if not demo_mode():
+        return True
+    if st.session_state.get("is_owner"):
+        return True
+    token = os.getenv("OWNER_TOKEN", "").strip()
+    supplied = st.query_params.get("owner", "")
+    if token and secrets.compare_digest(str(supplied), token):
+        st.session_state["is_owner"] = True
+        return True
+    return False
+
+
 def runs_left() -> int | None:
     """Model runs this session may still make; None means unlimited."""
-    if not demo_mode():
+    if not demo_mode() or is_owner():
         return None
     return max(0, max_runs() - st.session_state.get("ai_runs", 0))
 
