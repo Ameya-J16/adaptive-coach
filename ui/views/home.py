@@ -52,7 +52,7 @@ def render(coach_page) -> None:
                 ("6", "specialist agents"),
                 ("12", "tools they can call"),
                 ("44", "peer-reviewed papers"),
-                ("100%", "critic accuracy on golden set"),
+                ("0", "bad plans passed by the critic"),
                 ("100+", "automated tests in CI"),
             ]
         )

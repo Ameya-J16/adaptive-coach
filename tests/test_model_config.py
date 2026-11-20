@@ -85,3 +85,12 @@ def test_per_node_override_beats_global(monkeypatch):
     assert model_for("critic") == "gpt-4o"
     assert model_for("plan_writer") == "gpt-5.4"
     assert get_llm("critic", temperature=0.0).temperature == 0.0
+
+
+def test_describe_lists_per_agent_overrides(monkeypatch):
+    from config.models import describe
+
+    monkeypatch.setenv("LLM_MODEL", "gpt-5.4-mini")
+    assert describe() == "openai · gpt-5.4-mini · proprietary"
+    monkeypatch.setenv("LLM_MODEL_CRITIC", "gpt-5.4")
+    assert describe() == "openai · gpt-5.4-mini (critic: gpt-5.4) · proprietary"
