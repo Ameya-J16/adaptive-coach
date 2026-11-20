@@ -1,0 +1,353 @@
+{
+  "timestamp": "2026-11-20T12:14:09",
+  "llm_backend": "openai \u00b7 gpt-5.4-mini (critic: gpt-5.4) \u00b7 proprietary",
+  "embedding_backend": "local \u00b7 BAAI/bge-base-en-v1.5 \u00b7 free, in-process",
+  "pass_threshold": 0.75,
+  "dimension_low_threshold": 0.6,
+  "n_cases": 14,
+  "metrics": {
+    "verdict_accuracy": 0.9,
+    "false_pass_rate": 0.0,
+    "false_fail_rate": 0.1,
+    "dimension_detection_rate": 1.0,
+    "mean_good_score": 0.85,
+    "mean_flawed_score": 0.541,
+    "min_good_score": 0.725,
+    "max_flawed_score": 0.725,
+    "score_separation": 0.309
+  },
+  "cases": [
+    {
+      "name": "good_green_increase",
+      "description": "Green athlete, increase action, volume +7%, 2x frequency, grounded notes",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.9,
+      "verdict": "pass",
+      "scores": {
+        "safety": 1.0,
+        "coherence": 0.9,
+        "groundedness": 1.0,
+        "goal_alignment": 0.7
+      },
+      "violations": [],
+      "issues_found": [
+        "Thursday and Friday repeat Monday/Tuesday almost exactly but with lower RPE targets, so the second weekly exposures are easier instead of delivering a clear overload for an 'increase' week.",
+        "Several hypertrophy-focused sets are programmed too far from failure for an intermediate lifter (especially Thursday OHP at RPE 6.5 and Friday squat/RDL/leg press at RPE 7.0/6.5/6.0), which likely weakens the growth stimulus.",
+        "Exercise selection is too narrow for a hypertrophy goal: no direct biceps/triceps work, no lateral-delt isolation, and hamstrings are trained only through RDLs without any knee-flexion work, leaving likely hypertrophy gaps."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_red_deload",
+      "description": "Red athlete, deload action, volume 60% of baseline, RPE ~6, 4 rest days",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.875,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.9,
+        "groundedness": 0.7,
+        "goal_alignment": 1.0
+      },
+      "violations": [],
+      "issues_found": [
+        "Overall notes overstate the evidence: '4 full rest days per ACWR>1.5 protocol' is not supported by the provided context or knowledge base; the protocol support found was for at least 2 rest days, not specifically 4.",
+        "Friday notes assume 'normal training resumes' immediately after this deload, but with red fatigue and ACWR 1.66 the safer/coherent choice is to reassess readiness at week end before restoring full load."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_amber_maintain",
+      "description": "Amber athlete, maintain action, volume ~99% of baseline, RPE <= 8",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.95,
+      "verdict": "pass",
+      "scores": {
+        "safety": 1.0,
+        "coherence": 1.0,
+        "groundedness": 1.0,
+        "goal_alignment": 0.8
+      },
+      "violations": [],
+      "issues_found": [
+        "Strength goal only partially served because the main lifts are programmed almost entirely in moderate hypertrophy-oriented rep ranges (bench/row 4x8, OHP 3x10, leg press 3x10) with no lower-rep strength-specific work on any day.",
+        "Lower-body work is somewhat more strength-relevant than upper-body work, but even there the week lacks any clearly heavy, low-rep exposure on the primary strength lifts (Squat and Bench Press), which can limit specificity for an intermediate lifter training for strength."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_fresh_start",
+      "description": "No-history beginner, conservative starter plan at RPE 6",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.9,
+      "verdict": "pass",
+      "scores": {
+        "safety": 1.0,
+        "coherence": 0.9,
+        "groundedness": 1.0,
+        "goal_alignment": 0.7
+      },
+      "violations": [],
+      "issues_found": [
+        "All three lifting days use only 3x10 at RPE 6 with light dumbbell/goblet variations, which is a weak match for a stated strength goal.",
+        "Lower-body strength work is especially limited: Monday and Wednesday rely on 12 kg goblet squats, so the squat stimulus is likely capped by the front hold rather than leg strength.",
+        "Friday's note to 'add 2.5 kg next week if all sets complete' is too automatic for a baseline week with a beginner; it should also depend on whether the target RPE stayed conservative."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_swap_honoured",
+      "description": "Maintain with exercises_to_swap correctly substituted",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.75,
+      "verdict": "pass",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.8,
+        "groundedness": 0.7,
+        "goal_alignment": 0.6
+      },
+      "violations": [],
+      "issues_found": [
+        "Strength goal is poorly served by the weekly rep prescription: almost all work is 8-15 reps with no clearly heavier, lower-rep strength-focused sets on the main lifts.",
+        "Friday's lower session is only leg curl, leg extension, and calf raise, so the second lower day provides little compound lower-body strength stimulus and makes lower-body work much less specific than the duplicated upper sessions.",
+        "Overall notes make unsupported claims: 'volume held at baseline' cannot be verified from the plan data, and 'knee discomfort' is given as the reason for the squat swap even though that rationale is not present in the input data."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "good_endurance_mix",
+      "description": "Endurance athlete: run quality + long run + 2 strength support days",
+      "expected_verdict": "pass",
+      "expect_low_dimensions": [],
+      "overall": 0.725,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.8,
+        "groundedness": 0.5,
+        "goal_alignment": 0.7
+      },
+      "violations": [],
+      "issues_found": [
+        "Thursday note overstates the evidence: polarized training does not require eliminating threshold work entirely, only keeping middle-intensity volume low.",
+        "Tuesday lower-body strength is described as 'placed away from the quality run,' but it is only 24h after Monday's 6x800m and does not provide the separation the note claims.",
+        "The two strength sessions are weakly targeted for running-economy support: mostly moderate-rep, relatively light accessory lifts (3x10-15 goblet squat/lunge/RDL/step-up) with no heavier maximal-strength or plyometric emphasis."
+      ],
+      "verdict_correct": false
+    },
+    {
+      "name": "bad_consecutive_heavy",
+      "description": "Same heavy lower-body session on consecutive days",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.275,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.0,
+        "coherence": 0.5,
+        "groundedness": 0.2,
+        "goal_alignment": 0.4
+      },
+      "violations": [
+        "SAFETY: monday and tuesday both load ['glutes', 'hamstrings', 'quads'] above RPE 7.0 \u2014 consecutive heavy sessions for the same muscle group."
+      ],
+      "issues_found": [
+        "Monday and Tuesday are exact copies of the same squat + Romanian deadlift session, concentrating a very large lower-body workload into 24 hours and likely degrading performance quality on Tuesday.",
+        "The progression decision was a modest increase, but the plan applies progression by duplicating the hardest lower session instead of distributing added work across the week; this is a disproportionate fatigue spike rather than a controlled weekly increase.",
+        "For a hypertrophy goal, the lower-body work is dominated by low-rep, strength-skewed compounds (5x5 squat, 4x6 RDL at RPE 8.5-9) with no moderate-rep accessory volume to build recoverable hypertrophy stimulus.",
+        "Most upper-body muscle groups are only trained once all week, while four total rest days are left unused despite 5 available training days; for an intermediate hypertrophy block this likely leaves weekly stimulus too low for chest, back, shoulders, and arms.",
+        "The note 'Back-to-back heavy lower sessions to maximise stimulus' is contradicted by the retrieved recovery guidance that large compound lifts like squats and RDLs generally need 48-72 hours before the next high-intensity session.",
+        "The plan's intensity choice is not well matched to the fatigue context: a green week supporting a modest increase does not justify repeating RPE 9 squat work on consecutive days when a recoverable volume increase could be achieved with lower per-session fatigue."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_deload_no_reduction",
+      "description": "Deload action but planned volume ~= baseline",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.6,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.0,
+        "groundedness": 1.0,
+        "goal_alignment": 0.6
+      },
+      "violations": [
+        "COHERENCE: action is deload but planned volume is 7397kg = 99% of the 7500kg weekly baseline (must be <= 85%)."
+      ],
+      "issues_found": [
+        "For a red-fatigue week with ACWR 1.66, the plan keeps all 4 lifting days instead of reducing session density; this limits actual recovery opportunity.",
+        "Friday and Saturday are back-to-back lifting days during a deload despite the athlete being in a high-risk fatigue state, which weakens fatigue dissipation.",
+        "Upper-body days are built mostly around 8-10 rep work (bench 4x8, row 4x8, OHP 3x10), which is less specific to a strength goal than lower-rep strength maintenance work.",
+        "Lower-body days also rely on moderate-to-high rep accessory volume (RDL 3x8, leg press 3x10 repeated twice), so the deload preserves too much hypertrophy-style work relative to the stated strength goal.",
+        "The plan repeats the same exercise menu and near-normal weekly structure on both halves of the week, which is not coherent with its stated aim of a recovery-focused deload."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_increase_decrease",
+      "description": "Increase action but planned volume is 80% of baseline",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.675,
+      "verdict": "fail",
+      "scores": {
+        "safety": 1.0,
+        "coherence": 0.4,
+        "groundedness": 0.5,
+        "goal_alignment": 0.8
+      },
+      "violations": [
+        "COHERENCE: action is increase but planned volume is 7197kg = 80% of baseline \u2014 no actual increase."
+      ],
+      "issues_found": [
+        "Lower body is trained only once for the week, while upper body is trained twice; this uneven frequency is likely to underdeliver lower-body hypertrophy.",
+        "The only program-level note says 'Progressive overload week,' but the written plan does not actually show an overload progression to support that claim."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_swap_ignored",
+      "description": "Exercise marked for substitution still appears in the plan",
+      "expected_verdict": "fail",
+      "expect_low_dimensions": [],
+      "overall": 0.7,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.9,
+        "coherence": 0.5,
+        "groundedness": 0.9,
+        "goal_alignment": 0.7
+      },
+      "violations": [
+        "COHERENCE: Barbell Squat on monday was marked for substitution but still appears in the plan.",
+        "COHERENCE: Squat on friday was marked for substitution but still appears in the plan."
+      ],
+      "issues_found": [
+        "Overall note says 'planned substitutions' were implemented, but both lower-body sessions still use squat patterns that were supposed to be swapped, so the plan contradicts its own stated logic.",
+        "For a stated strength goal, both upper-body sessions are built almost entirely in moderate hypertrophy-oriented rep ranges (Bench/Row 4x8, OHP 3x10) with no lower-rep primary strength work, which blunts specificity to maximal strength adaptation.",
+        "Saturday repeats the same upper session structure as Wednesday at lower RPE rather than providing a distinct strength-focused exposure, limiting useful variation and reducing specificity for the goal."
+      ],
+      "verdict_correct": true
+    },
+    {
+      "name": "bad_ungrounded_claims",
+      "description": "Plan notes cite claims the knowledge base contradicts (25-30% jumps, no deloads needed)",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "groundedness"
+      ],
+      "overall": 0.725,
+      "verdict": "fail",
+      "scores": {
+        "safety": 1.0,
+        "coherence": 0.8,
+        "groundedness": 0.2,
+        "goal_alignment": 0.9
+      },
+      "violations": [],
+      "issues_found": [
+        "Overall notes falsely claim 25-30% weekly volume jumps are standard for intermediates; provided evidence supports about 5-10%.",
+        "Overall notes claim deloads are unnecessary for athletes under 30; no support was found for an age-based rule like this.",
+        "Overall notes say the block is pushing volume aggressively 'per the retrieved evidence,' but the actual week is a moderate 4-day upper/lower split with no clear aggressive volume progression shown, so the stated rationale does not match the programmed week."
+      ],
+      "dimension_hits": {
+        "groundedness": true
+      }
+    },
+    {
+      "name": "bad_wrong_goal_reps",
+      "description": "Endurance goal but the plan is pure heavy triples with zero conditioning",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "goal_alignment"
+      ],
+      "overall": 0.475,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.8,
+        "coherence": 0.6,
+        "groundedness": 0.2,
+        "goal_alignment": 0.3
+      },
+      "violations": [],
+      "issues_found": [
+        "The week contains zero sport-specific endurance sessions, so it does not train the athlete's stated goal of endurance in any direct way.",
+        "All three training days are built around heavy 3-rep barbell lifts, which biases maximal strength rather than aerobic capacity, threshold development, or endurance-specific high/low intensity distribution.",
+        "The plan does not use the athlete's 5 available training days or the fatigue recommendation of 'room for a small volume increase'; instead it keeps 4 rest days and adds no identifiable increase in endurance-relevant volume.",
+        "Monday stacks 5x3 squat and 5x3 deadlift at RPE 8.5 in the same session, creating a very high neuromuscular and spinal loading cost for limited endurance-specific return.",
+        "The note 'Endurance development block built around maximal strength' is not supported by the provided endurance-training evidence, which discusses endurance intensity distribution (polarized/pyramidal) rather than replacing endurance work with heavy triples.",
+        "The plan's stated logic is weakly justified: a green fatigue state with a hint for small volume increase is used to support repeated heavy-intensity strength sessions rather than a modest increase in endurance workload."
+      ],
+      "dimension_hits": {
+        "goal_alignment": true
+      }
+    },
+    {
+      "name": "bad_deload_max_intensity",
+      "description": "Deload with correct volume cut but RPE 9 grinding on every lift",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "safety"
+      ],
+      "overall": 0.55,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.6,
+        "coherence": 0.7,
+        "groundedness": 0.2,
+        "goal_alignment": 0.7
+      },
+      "violations": [],
+      "issues_found": [
+        "Monday squat is prescribed at RPE 9 during a deload despite red fatigue and ACWR 1.66, so intensity is too high for the athlete's current recovery state.",
+        "Wednesday bench press is also set at RPE 9 in a deload week, again failing to meaningfully reduce training stress.",
+        "Friday deadlift at RPE 9 with 'Grinding pulls' is a high-fatigue exposure on the most systemically taxing lift when the profile calls for immediate load reduction.",
+        "Across all three lifting days, the plan reduces sets but keeps near-maximal effort, so it does not actually implement a credible deload for an acute load spike.",
+        "Wednesday's note says 'Heavy doubles feel' but the prescription is 2x5 bench press, which is internally inconsistent with the stated session logic.",
+        "The claim 'Deload volume per protocol' is not supported by the provided context or the knowledge base as written here; the cited context supports reducing training stress/load, not keeping all main lifts near-maximal and grinding."
+      ],
+      "dimension_hits": {
+        "safety": true
+      }
+    },
+    {
+      "name": "bad_no_rest_days",
+      "description": "Seven straight training days, zero rest, on a maintain week",
+      "expected_verdict": null,
+      "expect_low_dimensions": [
+        "safety"
+      ],
+      "overall": 0.325,
+      "verdict": "fail",
+      "scores": {
+        "safety": 0.4,
+        "coherence": 0.3,
+        "groundedness": 0.2,
+        "goal_alignment": 0.4
+      },
+      "violations": [],
+      "issues_found": [
+        "Plan ignores athlete availability by scheduling 7 training days despite only 4 available days.",
+        "Seven consecutive sessions with no rest days are inappropriate for amber fatigue and ACWR 1.41, which calls for holding load and adding recovery rather than maximizing weekly stimulus.",
+        "Upper and lower sessions are each repeated every 48 hours; for amber fatigue, recovery spacing should be extended rather than kept at a high-frequency 3x/week cadence.",
+        "Weekly volume is materially higher than a maintenance week: 6 full strength sessions plus a Sunday accessory day conflicts with the decision to maintain and the fatigue hint to avoid further loading.",
+        "Overall note claims alternating muscle groups gives 'maximum weekly stimulus,' but the retrieved guidance for amber fatigue supports extra rest days and longer recovery windows, so this rationale is contradicted.",
+        "For a strength goal, much of the plan is biased toward moderate-to-high rep hypertrophy work (Bench 4x8 three times, OHP 3x10 three times, RDL 3x8 three times, Leg Press 3x10 three times) instead of emphasizing lower-rep strength-specific work on the main lifts.",
+        "Sunday 'arm pump day' adds fatigue and training volume without meaningful specificity to the stated strength goal. "
+      ],
+      "dimension_hits": {
+        "safety": true
+      }
+    }
+  ],
+  "note": "Run with LLM_MODEL=gpt-5.4-mini, LLM_MODEL_CRITIC=gpt-5.4, LLM_REASONING_EFFORT=low (the live app's settings). llm_backend corrected after the run: the label did not yet show per-agent overrides."
+}

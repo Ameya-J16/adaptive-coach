@@ -1,0 +1,18 @@
+langchain>=0.3.0
+# ChatOpenAI also drives every OpenAI-compatible open-weight provider
+# (Groq, Together, OpenRouter, Ollama) via base_url — see config/models.py
+langchain-openai>=0.2.0
+langchain-community>=0.3.0
+langgraph>=0.2.0
+langfuse>=2.0.0
+faiss-cpu>=1.8.0
+openai>=1.0.0
+# local ONNX embeddings (no PyTorch) — the default embedding backend
+fastembed>=0.4.0
+streamlit>=1.50.0  # top navigation + theme options used by the site
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+pytest>=8.0.0
+sqlalchemy>=2.0.0
+pandas>=2.0.0
+greenlet>=3.0

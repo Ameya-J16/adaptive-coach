@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="196" height="32" viewBox="0 0 196 32">
+  <rect x="0" y="2" width="28" height="28" rx="8" fill="#C8F135"/>
+  <path d="M16.2 7 9 18h5.6l-1.8 7.6L20 14.6h-5.6z" fill="#0A0D12"/>
+  <text x="38" y="22.5" font-family="Space Grotesk, Inter, Arial, sans-serif" font-size="17" font-weight="700" fill="#E7ECF2" letter-spacing="-0.3">AdaptiveCoach</text>
+</svg>

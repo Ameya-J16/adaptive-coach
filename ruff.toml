@@ -1,0 +1,7 @@
+# Lint config used locally and in CI (.github/workflows/ci.yml).
+# Kept to real bugs: syntax errors, undefined names, unused imports/variables.
+target-version = "py311"
+extend-exclude = ["rag/faiss_index", "evals/results"]
+
+[lint]
+select = ["E9", "F"]
