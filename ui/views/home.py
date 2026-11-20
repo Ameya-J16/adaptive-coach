@@ -53,7 +53,7 @@ def render(coach_page) -> None:
                 ("12", "tools they can call"),
                 ("44", "peer-reviewed papers"),
                 ("100%", "critic accuracy on golden set"),
-                ("83", "automated tests in CI"),
+                ("100+", "automated tests in CI"),
             ]
         )
         + "</div>"

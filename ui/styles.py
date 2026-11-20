@@ -40,6 +40,10 @@ button[kind="primary"], button[data-testid="stBaseButton-primary"],
   font-weight: 600;
 }
 button[kind="primary"] p, button[data-testid="stBaseButton-primary"] p { color: var(--ac-accent-ink) !important; }
+button[kind="primary"]:disabled, button[data-testid="stBaseButton-primary"]:disabled,
+button[kind="primary"]:disabled p, button[data-testid="stBaseButton-primary"]:disabled p {
+  color: var(--ac-muted) !important;
+}
 
 /* ── Typography helpers ─────────────────────────────────────── */
 .ac-eyebrow {

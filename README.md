@@ -7,7 +7,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C?style=flat)
 ![LangChain](https://img.shields.io/badge/LangChain-0.3-1C3C3C?style=flat&logo=langchain&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.4-412991?style=flat&logo=openai&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5.4%20mini-412991?style=flat&logo=openai&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?style=flat&logo=streamlit&logoColor=white)
 ![Langfuse](https://img.shields.io/badge/Langfuse-Observability-000000?style=flat)
 
@@ -79,7 +79,7 @@ from `main` by the CI/CD pipeline.
 | Layer | Technology |
 |---|---|
 | Orchestration | LangGraph `StateGraph` with typed `AgentState` |
-| LLM | OpenAI GPT-5.4 in production (any OpenAI-compatible provider via `LLM_PROVIDER` / `LLM_MODEL`) |
+| LLM | OpenAI GPT-5.4 mini in production (any OpenAI-compatible provider via `LLM_PROVIDER` / `LLM_MODEL`) |
 | Embeddings | `text-embedding-3-small` → FAISS |
 | RAG | `RecursiveCharacterTextSplitter` → MMR retrieval |
 | Prompts | `ChatPromptTemplate` per node (no f-strings) |
@@ -155,14 +155,16 @@ python main.py --user-id ameya --action history  # view history
 ```bash
 pip install -r requirements-dev.txt
 ruff check .                                   # lint
-python -m pytest -q --cov=graph --cov=evals    # 83 tests + coverage (offline, no API keys)
+python -m pytest -q --cov=graph --cov=evals    # 107 tests + coverage (offline, no API keys)
 python -m evals.run_eval --offline             # critic golden set, deterministic layer
+python -m evals.run_routing_eval --offline     # routing golden set, offline checks
 python -m evals.run_eval                       # full live critic eval (calls the LLM)
+python -m evals.run_routing_eval               # supervisor routing on 14 labelled requests (calls the LLM)
 ```
 
 GitHub Actions runs the same checks on every push and pull request
 (`.github/workflows/ci.yml`): a ruff lint job, the test suite with coverage
-on Python 3.11, 3.12 and 3.13, the offline golden-set eval, and a job that
+on Python 3.11, 3.12 and 3.13, the offline critic and routing golden-set checks, a job that
 builds the FAISS index from the paper corpus and runs the retrieval tests, and a
 Docker smoke test that builds the image and waits for the app's health check.
 
@@ -183,9 +185,12 @@ One-time setup (free, no tokens needed):
    (TOML), e.g. `OPENAI_API_KEY = "..."`, or `LLM_PROVIDER = "groq"` plus
    `GROQ_API_KEY = "..."`. Leave `EMBEDDING_PROVIDER` unset: the shipped index
    is built with local embeddings.
-   To use a different OpenAI model, add `LLM_MODEL = "gpt-5.4"` (reasoning
-   models are supported; optional `LLM_REASONING_EFFORT = "low"`), or set one
-   agent's model with e.g. `LLM_MODEL_CRITIC = "..."`.
+   To use a different OpenAI model, add e.g. `LLM_MODEL = "gpt-5.4-mini"`
+   (reasoning models are supported; optional `LLM_REASONING_EFFORT = "low"`), or
+   set one agent's model with e.g. `LLM_MODEL_CRITIC = "gpt-5.4"`.
+   For a public deploy also add `DEMO_MODE = "true"`: each visitor then works on
+   a private copy of the demo athletes, and gets `MAX_AI_RUNS_PER_SESSION`
+   (default 5) model runs per visit so an open demo can't run up the API bill.
 4. Deploy. The `deploy` branch appears after the first green push to `main`.
 
 On first start the app seeds the demo personas, since the hosted `data/`
